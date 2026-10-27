@@ -1,0 +1,7 @@
+﻿{
+  "SystemName": "ModernStore",
+  "FriendlyName": "Modern store (Tailwind design system)",
+  "SupportRTL": true,
+  "PreviewImageUrl": "~/Themes/ModernStore/preview.jpg",
+  "PreviewText": "A modernized storefront built on DefaultClean with a token-based Tailwind design system"
+}

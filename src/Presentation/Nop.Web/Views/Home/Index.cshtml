@@ -1,0 +1,76 @@
+﻿@using Nop.Services.Localization
+@using Nop.Services.Topics
+@using Nop.Core
+@inject ILocalizationService localizationService
+@inject IStoreContext storeContext
+@inject ITopicService topicService
+
+@{
+    Layout = "_ColumnsOne";
+
+    var homepageTitle = await localizationService.GetLocalizedAsync(await storeContext.GetCurrentStoreAsync(), s => s.HomepageTitle);
+
+    //title
+    if (!string.IsNullOrEmpty(homepageTitle))
+    {
+        NopHtml.AddTitleParts(homepageTitle);
+    }
+
+    var homepageDescription = await localizationService.GetLocalizedAsync(await storeContext.GetCurrentStoreAsync(), s => s.HomepageDescription);
+
+    //meta
+    if (!string.IsNullOrEmpty(homepageDescription))
+    {
+        NopHtml.AddMetaDescriptionParts(homepageDescription);
+    }
+
+    //page class
+    NopHtml.AppendPageCssClassParts("html-home-page");
+}
+<div class="page home-page">
+    <div class="page-body">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageTop })
+        
+        @* Hero pulls its content from the "HomepageText" topic (Admin -> Configuration -> Static topics).
+           Rendered only when the topic exists, so a store without one simply starts at categories. *@
+        @{
+            var heroTopic = await topicService.GetTopicBySystemNameAsync("HomepageText");
+        }
+        @if (heroTopic != null)
+        {
+            <section class="homepage-hero">
+                @await Component.InvokeAsync(typeof(TopicBlockViewComponent), new { systemName = "HomepageText" })
+            </section>
+        }
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeCategories })
+        
+        <section class="home-page-categories">
+            @await Component.InvokeAsync(typeof(HomepageCategoriesViewComponent))
+        </section>
+
+        @await Component.InvokeAsync(typeof(FilterLevelValueSearchViewComponent))
+        
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeProducts })
+        
+        <section class="home-page-products">
+            @await Component.InvokeAsync(typeof(HomepageProductsViewComponent))
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeBestSellers })
+        
+        <section class="home-page-best-sellers">
+            @await Component.InvokeAsync(typeof(HomepageBestSellersViewComponent))
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeNews })
+        
+        <section class="home-page-news">
+            @await Component.InvokeAsync(typeof(HomepageNewsViewComponent))
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforePoll })
+        @await Component.InvokeAsync(typeof(HomepagePollsViewComponent))
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBottom })
+    </div>
+</div>

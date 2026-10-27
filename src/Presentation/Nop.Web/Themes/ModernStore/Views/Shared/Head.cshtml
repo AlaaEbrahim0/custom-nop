@@ -1,0 +1,41 @@
+﻿@using Nop.Core.Domain.Catalog
+@using Nop.Services.Helpers
+
+@inject CatalogSettings catalogSettings
+@inject IThemeContext themeContext
+@inject IUserAgentHelper userAgentHelper
+
+@{
+    Layout ="";
+    var themeName = await themeContext.GetWorkingThemeNameAsync();
+    var supportRtl = await Html.ShouldUseRtlThemeAsync();
+
+    //add jQuery UI css file (load first so our styles override it)
+    NopHtml.AppendCssFileParts("~/lib_npm/jquery-ui-dist/jquery-ui.min.css");
+
+    //add swiper css file
+    if (catalogSettings.DisplayAllPicturesOnCatalogPages)
+    {
+        NopHtml.AppendCssFileParts("~/lib_npm/swiper/swiper-bundle.min.css");
+    }
+
+    //add main CSS file (base theme styles)
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/styles{(supportRtl ? ".rtl" : "")}.css");
+
+    //add Tailwind CSS utilities (generated from tailwind.config.cjs)
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/tailwind.css");
+
+    //add design system: design tokens, component overrides, responsive layout
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/design-system.css");
+
+    //theme interactions (sticky menu shadow, back-to-top)
+    NopHtml.AppendScriptParts(ResourceLocation.Footer, $"~/Themes/{themeName}/Content/js/theme.js");
+
+    //Arabic web font. Registered as head markup rather than a CSS @import because the
+    //stylesheet bundler drops @import rules that are not at the top of the bundle.
+    //AppendHeadCustomParts inserts first, so the font is available before the CSS applies.
+    NopHtml.AppendHeadCustomParts(
+        "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />" +
+        "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />" +
+        "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap\" />");
+}
