@@ -1,0 +1,86 @@
+OBSIDIAN ATELIER — CATALOG IMAGE SOURCES
+
+All files in this directory are crops or resized versions of project-generated
+assets from the Obsidian Atelier design source (Google Stitch), created for this
+storefront. They are not third-party stock photographs.
+Filenames below list the original asset URL used for each derivative.
+
+tourbillon-biaxial.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuD_bHO-7C5RhcVrAxIZ9Uw6rymBKnXVb6KXqy2L7xo5zgqJ3gk4hWylr235A3yl5cRTPNFtjxLAN5_DSV1wSC7fjytKbU32N_SdfRQR1t4Nh13LOHZ-1RgP1nBk1VRI-prdx1UU60iP13R7axyYUO5yXJ9pj9dRisYkEGWHGRAgdeZV9APUtbrZYkUxFXVGsBAXBOW_-PUujMP9pw2GQW7owqEOk2wQIn-Bv_fV7w4
+  alt: Tourbillon prototype haute horlogerie timepiece with openworked flying tourbillon cage, balance spring vibrating, exposed bridges in dark ruthenium finish, dram
+
+aeternitas-aurum.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuCitXrKGtnFI-jL2pvDDr2FWIHpfowGMT_USN6vLNkhAQg9D9rydX5SDOhM2lk_y2zynHB4h8XG_RjH78zcyZtgQmZNBwhH-ENtncaEY3bUIHKt4SK77NYNmCHjdXUwt4gDLH3AkrQ_4QgSPAuoqegk9Kqtba3mcUsRZwJ8JKrlu1CJNCNJWAPFqrKmWGMaGRBUVNoGPaHT4JAgN1dbljWCCOJZ7VRJvnlAp1PA0Ng
+  alt: Exhibition sapphire crystal caseback showing custom skeletonized 22K gold oscillating weight and hand-decorated Geneva stripes.
+
+atelier-chrono-04.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuAImggsLyqBjjLImNnxZMYKOHmJGbgrqiv0ZeV0eGLYrbIl5jlp2YdhKRu_nhC-wURuNR7JCfPKJ8yekUHbmCoGV16u9ZaO4syTvWYPn4_K3lhZEWG_Nwl8onA7Gnf2Rgs4GCmiUEa5eUX5ZbAWWO0atjADClR7TbI9LISZWliTN_3OtbJ0JI_qdT79D8_7hA6rqJm4gljT8Iy9L81NXhiHGXBtu58L6cGoXXnk7lY
+  alt: Front view photograph of the Obsidian Atelier Chrono No. 04 luxury watch, deep matte obsidian black dial with champagne gold indices, sapphire crystal glass ref
+
+saffiano-weekender.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBc9vKkfWCOB9ZrGCYoh2Fb-Ow9DreQFBpk-Gnl5GZ2Jg8SlyzRr_R68gyirlIOcBKlaFthsKCpmw8UxtVenvtYgqrG7CWxbCnYJ-dHzDHegjPshgC_l2xMjrmbkPYwQUMDjbO0d6AOWPEDOEM7dCoMg3AlCCFqUcqtADXISSKRF_7KR6APugRT47iOSHCt5NcnJ2RQqlL9iWbGt7CektUs_R8CXadp6WVh74304Vg
+  alt: Editorial product shot of an ultra-luxurious dark midnight Saffiano leather travel weekender duffle bag with hand-burnished edges, custom brass hardware, solid 
+
+cordovan-strap.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBcv8BcYC-ai8-kp6hZynBAlQAHoUyiziYol4XUnP2vRlOzD_Z833g4CkHu_2OpO6ti2tA9l9g5sn9PAikJhEtZxx6qG30AIT5slq6_nBQ_fMMT6Ndx_SjLJSW6ZEG7N2PjwUNQsdI7FaFX4fjF0tYwh9CYBiZCgCr-UiZyHqP_KtBB12QkvNWKhq2_LCZNogmQlEXv3HbExIBCiKAzra4fGjmyKUiauWYNZJ93Y58
+  alt: Detailed view of vegetable-tanned bespoke black Cordovan leather strap with hand-stitched linen thread and titanium deployant clasp.
+
+cordovan-stitch.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuAh7YGgC1iOuBfGujO7m1GxJm0-4_kBkRv10BHjbUyRC2bCWEcH062pwxODBODtqWOfrnLk1c9vmxg0qUflsGYmCZXTpKRvHlX2XmzsTNS0ERb8A2E000bsaDTHM6DQv_GWF8obavd7EOVBvKtnDbQ4OP0WAy5Jjgh75a-bjyufBlHLUboUV0Au_R1MH8IuL1XmuyuT6zouF0QfXWawWJOR44yjliL4iw8-pHFNxTo
+  alt: Close-up detail of artisanal leather edge saddle stitching using unwaxed linen thread on thick deep charcoal bridle leather, antique hand-tools resting in the b
+
+vapor-eyewear.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuC-G8xxMeqzeh1qjqpBBYbUpKLFmNk8UHfYN76ZtHlgIQawb50weHpo3zeBJ7Q3vfWGtrPWhjaE4rsHx79gJIR3dKrKJrIjzili172e6xO-yMEBibC3Bo7Yc_Wund2irSQ9Iw91h6Eu2V25LvTu22ydAPHz5DxxzvW7GSgr3DPlmj68ExfFA71SaNRcgxYH1NTKqxA_NcEfcLH3tTnmZJ53PsyHTG63k5DW9VmXHCw
+  alt: Architectural still life photograph of minimalist rimless titanium sunglasses with warm amber tinted polarized lenses, precision micro-milled geometric hinges, 
+
+santal-noir.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBtCVU7PfBT8sA1e-_DyVE_GeYhVAQMBlSJ2coi2M0NB8Muz1Rca5C44zb6TtokkE33rEbxsssWXC1GA63eGJMeJ9otJb1BAxeE8b5hSXqmNz5sprNFhLpIslzTLPh3c7SkDCrEuLOiCdtDNWlDNRlSlxpxFuK9c_T37wp0ux_LjKu-O4JZ7IsZrs2QjiEr9pz-z9Uj2ZsmCodE6GTfqQmLUnmcxYmt5ajtEpxTZu8
+  alt: Heavyweight dark flacon perfume bottle containing Santal Noir extrait de parfum with an engraved solid raw brass cap, resting on dry charcoal volcanic sand with
+
+monolith-dual-time.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuC6bLDHnTIVZnMMFggrIO62V9v33qlbeaB72GJ_kpCjPNQ9msFr4DrQPgnSqbXXKJkxM6J3r4JyAIcqpRss8zrrxlVF8BGbH7ZbTQYm7AiXNrPhddLSV72YUkypiGxNW7j9oMa1a4FgAbokf3Gb0jucFCoSp1I1GcJsTIbnQXBpTHaIlCAn7N4hQqe9O-Bs5NmUzMGzADz4UNPSvsfRtSLW465QH0y8WQuIw9O-6sk
+  alt: Macro high horology studio photograph of the Obsidian Monolith Dual-Time watch with brushed grade 5 titanium case, deep obsidian black dial, champagne gold acce
+
+monolith-dial.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuAuP-VsC6nA1f_42EGtEyksvXAJv_hj0fFhUsdAIE0-EmvbhOH6Pgu_BCvCH9YQW1jaOAGINv9wrwK5K2cc_6bsPb6viNSg9YaujmnunPP4OA5Uu108csOyE65VAeTKZwnsIXBCfEWYVYKBAoJPXOEhbAxbnWKNxSZRggZo6bylOSE4JifC676DkZnJjRmhe0wn-xtJvM4JBWA0KFJEapx1VhfpWj4Lbiq6rz0cnio
+  alt: Macro view of watch face dial angle showing applied champagne gold indices and dual-time 24-hour subdial on slate black texture.
+
+monolith-crown.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBbGdTQPY4rT63Zc8qoHHpq6vCo-eUUOJ-GcpuHROyW8N43EkEiZuhFULVCNggwkBVVjINM38SslV7BVd-Z8PKM99u3PCA17C3u-7VMd4SeQc0181tkzqvOQZLZPvjxdalZKRTtg5saHiypZajgfAEQwHDMJhLcGrAjBNXVNgBCg4cz3Qos2P70UQQ_bQCP9AgB-MGS75N6YVMR5zPKhlOcEkTdGjD40Vic3sJkcW8
+  alt: Extreme macro of knurled titanium crown with laser-etched Obsidian diamond atelier emblem and double gasket seal.
+
+monolith-wrist.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuD40GSie7qmQMlo-41z5pKEVDzIcph4PEE_VC9QO27beiXCDzJeWd4oZpD-5AptOP_KcfHBNDeC1rRqPXAUT6iSLBodf0UyR92EWbyeJvr95u2ACWXB09vtjfMcNzbuYDIecy2rwkU_4rocGR6CXuM4XlY91UaBiQx2S98qlUPZnZXu5wecMRq3ooHKitdQjRnai8LUOCb6osRPe1-ZkSS5FsWQq603l49oOyGI2SI
+  alt: Atmospheric on-wrist editorial of the 41mm Monolith Dual-Time timepiece worn beneath a tailored charcoal wool cuff in architectural daylight.
+
+gmt-titanium.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuCYn-HFU2qA9vxhXQ6oax0X-TFTL2hwJRzap0WNqPq4chzkSWzF0B92WBFMkR-I_WtH9NjNhe1Qd90lIipE83N0IUB9Q6SLxIoTq0iXNLvKF4SQK7bzLfW0ctbhgC9DizO7XsfBqqweNKsef6JBCJdAc-1wuwTcHKW3FNCjQ1etemrcMUriTRsLxsEE4KcBOZTi5uq8p0ioX-5h8SxeDuE3UKWxDNuNdocJQyvU5bw
+  alt: Obsidian GMT Titanium luxury watch with gunmetal brushed bezel, champagne gold hand accents, high precision mechanical movement visible through micro-etched dia
+
+aerospace-ceramic.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBLiqjGfHd6G5oFL49ZIT2BaPHuGVczHSp-rvIVSoF-5Dr4qUNzvUc3d1eoqmrKyN3jV1QE1ZDjX8EsgGgi1Rgzajw3ZurpDf0Fpy_mEaf-UUHc7L0W5-fLWoUlv0SLqDVINMFqLBDqfDfrBhGZKqK5U9jqUbCAVVUUBHXplDgnidvlAPpBRI82TkP62PmKhIyh5dh2P3Na9XWMlwliH8VZuaKB-G26zUlC8hIQ4hE
+  alt: Minimalist luxury ceramic watch with deep obsidian jet black finish, subtle matte indices, elegant tapered silhouette on black textured volcanic stone under sha
+
+heritage-field.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBL4oXlpu59gIdGqMjz6kbP9CSr-vro-G880ccXV1iKRB3vMYZF-rkqcZ_y4CZ_xSJHwLMkvniPXIpFe_qgAxYHi8wDGFXvgaFT0C7-9DyL_9Dgzq2Nx90Nmormp7wT0rHCVNqE15PoQuZdQycx0s8egzPdFPKg1GYrNFf0jpO7J2FgsLuqV9q_Jmu3eUT5uTQ3K-vfudUlXO4Sq34g95db38Z3Ve7Vks2-nMCXXz8
+  alt: Heritage Field watch 38mm with vintage patina dial, domed sapphire glass, weathered dark cordovan leather strap, photographed in soft museum display lighting.
+
+dept-timepieces.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuD40GSie7qmQMlo-41z5pKEVDzIcph4PEE_VC9QO27beiXCDzJeWd4oZpD-5AptOP_KcfHBNDeC1rRqPXAUT6iSLBodf0UyR92EWbyeJvr95u2ACWXB09vtjfMcNzbuYDIecy2rwkU_4rocGR6CXuM4XlY91UaBiQx2S98qlUPZnZXu5wecMRq3ooHKitdQjRnai8LUOCb6osRPe1-ZkSS5FsWQq603l49oOyGI2SI
+  alt: Atmospheric on-wrist editorial of the 41mm Monolith Dual-Time timepiece worn beneath a tailored charcoal wool cuff in architectural daylight.
+
+dept-haute-horlogerie.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuCitXrKGtnFI-jL2pvDDr2FWIHpfowGMT_USN6vLNkhAQg9D9rydX5SDOhM2lk_y2zynHB4h8XG_RjH78zcyZtgQmZNBwhH-ENtncaEY3bUIHKt4SK77NYNmCHjdXUwt4gDLH3AkrQ_4QgSPAuoqegk9Kqtba3mcUsRZwJ8JKrlu1CJNCNJWAPFqrKmWGMaGRBUVNoGPaHT4JAgN1dbljWCCOJZ7VRJvnlAp1PA0Ng
+  alt: Exhibition sapphire crystal caseback showing custom skeletonized 22K gold oscillating weight and hand-decorated Geneva stripes.
+
+dept-leather-goods.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuAh7YGgC1iOuBfGujO7m1GxJm0-4_kBkRv10BHjbUyRC2bCWEcH062pwxODBODtqWOfrnLk1c9vmxg0qUflsGYmCZXTpKRvHlX2XmzsTNS0ERb8A2E000bsaDTHM6DQv_GWF8obavd7EOVBvKtnDbQ4OP0WAy5Jjgh75a-bjyufBlHLUboUV0Au_R1MH8IuL1XmuyuT6zouF0QfXWawWJOR44yjliL4iw8-pHFNxTo
+  alt: Close-up detail of artisanal leather edge saddle stitching using unwaxed linen thread on thick deep charcoal bridle leather, antique hand-tools resting in the b
+
+dept-eyewear.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuC-G8xxMeqzeh1qjqpBBYbUpKLFmNk8UHfYN76ZtHlgIQawb50weHpo3zeBJ7Q3vfWGtrPWhjaE4rsHx79gJIR3dKrKJrIjzili172e6xO-yMEBibC3Bo7Yc_Wund2irSQ9Iw91h6Eu2V25LvTu22ydAPHz5DxxzvW7GSgr3DPlmj68ExfFA71SaNRcgxYH1NTKqxA_NcEfcLH3tTnmZJ53PsyHTG63k5DW9VmXHCw
+  alt: Architectural still life photograph of minimalist rimless titanium sunglasses with warm amber tinted polarized lenses, precision micro-milled geometric hinges, 
+
+dept-objets.jpg
+  source: https://lh3.googleusercontent.com/aida-public/AB6AXuBtCVU7PfBT8sA1e-_DyVE_GeYhVAQMBlSJ2coi2M0NB8Muz1Rca5C44zb6TtokkE33rEbxsssWXC1GA63eGJMeJ9otJb1BAxeE8b5hSXqmNz5sprNFhLpIslzTLPh3c7SkDCrEuLOiCdtDNWlDNRlSlxpxFuK9c_T37wp0ux_LjKu-O4JZ7IsZrs2QjiEr9pz-z9Uj2ZsmCodE6GTfqQmLUnmcxYmt5ajtEpxTZu8
+  alt: Heavyweight dark flacon perfume bottle containing Santal Noir extrait de parfum with an engraved solid raw brass cap, resting on dry charcoal volcanic sand with

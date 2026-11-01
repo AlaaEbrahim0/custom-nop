@@ -1,0 +1,26 @@
+@model IList<ProductOverviewModel>
+
+@*Theme override of Views/Shared/Components/HomepageProducts/Default.cshtml —
+  editorial section chrome; the product box itself stays the shared _ProductBox partial.*@
+@if (Model.Count > 0)
+{
+    <section class="product-grid home-page-product-grid ms-sec at-section">
+        <header class="at-section__head">
+            <div>
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Permanent collection · 01</p>
+                <h2 class="at-section__title">@T("Homepage.Products")</h2>
+            </div>
+            <a class="at-section__link" href="@Url.RouteUrl(NopRouteNames.General.NEW_PRODUCTS)">
+                View the edit <span aria-hidden="true">→</span>
+            </a>
+        </header>
+        <div class="item-grid at-product-grid">
+            @foreach (var item in Model)
+            {
+                <div class="item-box">
+                    @await Html.PartialAsync("_ProductBox", item)
+                </div>
+            }
+        </div>
+    </section>
+}

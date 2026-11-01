@@ -1,0 +1,69 @@
+@model MenuModel
+
+@using Nop.Core.Domain.Menus
+@using Nop.Core.Http
+
+@{
+    var searchUrl = Url.RouteUrl(NopRouteNames.General.SEARCH);
+}
+
+@* ModernStore override of Views/Shared/Components/MainMenu/Default.cshtml.
+
+   The base renders a `<div role="button">` labelled with the menu name as the only
+   visible affordance, and hardcodes `menu-dropdown` on the container — which makes
+   legacy's `.menu-dropdown { display: inline-block }` apply to the whole nav bar.
+   Here the container is a plain <nav>, the drawer head carries the menu name, and the
+   leaf items are real <li>s.
+
+   Contract kept: public.menu.js is still loaded, and mainMenu.init is still called with
+   a `.menu-container .menu__item-toggle` selector plus the `menu-dropdown--active` class,
+   because that handler toggles the class on the toggle's parentNode — so every
+   .menu__item-toggle must stay a direct child of its .menu__item.*@
+<script src="~/js/public.menu.js" asp-location="Footer"></script>
+<script asp-location="Footer">
+    mainMenu.init('.menu-container .menu__item-toggle', 'menu-dropdown--active');
+</script>
+
+<div class="ms-drawer__backdrop" data-ms-drawer-close aria-hidden="true"></div>
+<nav class="menu-container" aria-label="@Model.Name">
+    <div class="menu-drawer__head">
+        <span class="menu-drawer__title">@Model.Name</span>
+        <button type="button" class="menu-drawer__dismiss" data-ms-drawer-close>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
+            </svg>
+            <span class="sr-only">@T("Common.Close")</span>
+        </button>
+    </div>
+    @* Search lives here on phones: the masthead keeps only the brand and the
+       client actions, and this row opens the same #atelier-search overlay. *@
+    <a href="@searchUrl" class="menu-drawer__search" data-ms-drawer-toggle aria-controls="atelier-search" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+        </svg>
+        <span>@T("Search.SearchBox.Text.Label")</span>
+    </a>
+    <ul class="menu @Model.CssClass">
+        @foreach (var menuItem in Model.Items)
+        {
+            @if (menuItem.ChildrenItems.Any())
+            {
+                @switch (menuItem.Template)
+                {
+                    case MenuItemTemplate.Grid:
+                        @await Html.PartialAsync("_MenuItem.Grid.cshtml", menuItem)
+                        break;
+                    default:
+                        @await Html.PartialAsync("_MenuItem.List.cshtml", menuItem)
+                        break;
+                }
+            }
+            else
+            {
+                <li class="menu__item @menuItem.CssClass">
+                    @await Html.PartialAsync("_MenuItem.cshtml", menuItem)
+                </li>
+            }
+        }
+    </ul>
+</nav>

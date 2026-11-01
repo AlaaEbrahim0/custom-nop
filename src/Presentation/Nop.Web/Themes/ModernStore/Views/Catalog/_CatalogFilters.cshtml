@@ -1,0 +1,53 @@
+@model CatalogProductsModel
+@*Theme override of Views/Catalog/_CatalogFilters.cshtml. The filter partials, their
+  ids and their AJAX hooks are unchanged. On desktop .at-filter-sheet__panel is
+  display:contents, so the rail renders exactly as before; both the desktop rail and
+  the mobile drawer are the same DOM. Below 1024px the block is pulled out of the rail
+  and becomes an end-side filter sidebar opened from the catalog toolbar (see theme.js
+  initCatalogFilterSheet). The base view's slide-toggle is dropped on purpose: the
+  drawer shows every group expanded, so a title must not advertise a collapse. *@
+
+@if (!Model.PriceRangeFilter.Enabled &&
+     !Model.SpecificationFilter.Enabled &&
+     !Model.ManufacturerFilter.Enabled)
+{
+    return;
+}
+
+<section class="block product-filters at-filter-sheet" id="catalog-filter-panel" tabindex="-1" aria-labelledby="at-filter-title">
+    <div class="at-filter-sheet__backdrop" data-ms-drawer-close aria-hidden="true"></div>
+    <div class="at-filter-sheet__panel">
+        <header class="at-filter-sheet__head">
+            <div>
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Refine the edit</p>
+                <h2 class="at-filter-sheet__title" id="at-filter-title">Filters</h2>
+            </div>
+            <button type="button" class="at-filter-sheet__close" data-ms-drawer-close>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                    <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
+                </svg>
+                <span class="sr-only">@T("Common.Close")</span>
+            </button>
+        </header>
+        <div class="at-filter-sheet__body">
+            @if (Model.PriceRangeFilter.Enabled)
+            {
+                @await Html.PartialAsync("_FilterPriceBox", Model.PriceRangeFilter)
+            }
+
+            @if (Model.SpecificationFilter.Enabled)
+            {
+                @await Html.PartialAsync("_FilterSpecsBox", Model.SpecificationFilter)
+            }
+
+            @if (Model.ManufacturerFilter.Enabled)
+            {
+                @await Html.PartialAsync("_FilterManufacturerBox", Model.ManufacturerFilter)
+            }
+        </div>
+        <footer class="at-filter-sheet__foot">
+            <button type="button" class="at-filter-sheet__clear" data-at-filter-clear>Clear all</button>
+            <button type="button" class="at-btn at-filter-sheet__show" data-ms-drawer-close>Show results</button>
+        </footer>
+    </div>
+</section>

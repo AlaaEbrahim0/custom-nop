@@ -1,0 +1,112 @@
+@using Newtonsoft.Json
+@using Nop.Core.Domain.Messages
+@using Nop.Services.Messages
+@inject MessagesSettings messagesSettings
+
+@* ModernStore override of Views/Shared/_Notifications.cshtml.
+
+   Nothing here renders a banner. The TempData notes are serialised into one of two
+   footer scripts and handed to public.common.js, which builds the DOM. So the ids and
+   attributes below are not styling hooks, they are selectors that file reaches for:
+
+     #dialog-notifications-success / -error / -warning
+        displayPopupNotification (public.common.js:34, :38, :42, :46) and
+        displayJoinedPopupNotifications (:70) both do container.html(...), i.e. the
+        ENTIRE child list is replaced on every notification. That is why these three
+        elements must stay empty — an icon or a label written here is destroyed the
+        first time a notification fires.
+     #bar-notification
+        displayBarNotification (:122 clears its classes, :138 reads .dataset.close,
+        :150 appends). The banners it appends are
+        div.bar-notification.{success|error|warning} > p.content + span.close, created
+        at :129-148 — so the per-type icon for a bar notification can only come from
+        CSS (.bar-notification::before, already drawn in design-system.css).
+     .ajax-loading-block-window
+        displayAjaxLoading (:22, :25).
+
+   displayBarNotification also runs $('.bar-notification').remove() at :126, so no
+   server-rendered element in this view may carry that class or an add-to-cart
+   notification would delete it.
+
+   Presentation only changed: the TempData parsing, both script blocks, the widget
+   zone, every id, the role / aria-live / aria-atomic values, the dialog titles and the
+   data-close string are the base view's verbatim. Legacy classes are kept beside the
+   ms- hooks. The display:none values are the base's and are load-bearing (the dialog
+   nodes must be hidden until .dialog() initialises them), not new inline markup.*@
+@{
+    var successMessages = new List<string>();
+    var errorMessages = new List<string>();
+    var warningMessages = new List<string>();
+
+    //Get messages from TempData
+    var notes = TempData.ContainsKey(NopMessageDefaults.NotificationListKey)
+        ? JsonConvert.DeserializeObject<IList<NotifyData>>(TempData[NopMessageDefaults.NotificationListKey].ToString())
+        : null;
+
+    if (notes != null)
+    {
+        foreach (var note in notes)
+        {
+            switch (note.Type)
+            {
+                case NotifyType.Success:
+                    successMessages.Add(note.Message);
+                    break;
+                case NotifyType.Error:
+                    errorMessages.Add(note.Message);
+                    break;
+                case NotifyType.Warning:
+                    warningMessages.Add(note.Message);
+                    break;
+
+            }
+        }
+    }
+}
+@if (successMessages.Any() || warningMessages.Any() || errorMessages.Any())
+{
+    if (messagesSettings.UsePopupNotifications)
+    {
+        <script asp-location="Footer">
+            $(function() {
+                var notes = {
+                    'success': [
+                        @Html.Raw(string.Join(", ", successMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' ")))],
+                    'warning': [
+                        @Html.Raw(string.Join(", ", warningMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' ")))],
+                    'error': [
+                        @Html.Raw(string.Join(", ", errorMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' ")))]
+                };
+
+                displayJoinedPopupNotifications(notes);
+            });
+        </script>
+    }
+    else
+    {
+        <script asp-location="Footer">
+            $(function() {
+                var successMsg = [ @Html.Raw(string.Join(", ", successMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' "))) ];
+                displayBarNotification(successMsg, 'success', false);
+
+                var errorMsg = [ @Html.Raw(string.Join(", ", errorMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' "))) ];
+                displayBarNotification(errorMsg, 'error', false);
+
+                var warningMsg = [ @Html.Raw(string.Join(", ", warningMessages.Select(x => $" '{JavaScriptEncoder.Default.Encode(x)}' "))) ];
+                displayBarNotification(warningMsg, 'warning', false);
+            });
+        </script>
+    }
+}
+
+<div class="ajax-loading-block-window ms-notice-overlay" style="display: none">
+</div>
+<div id="dialog-notifications-success" class="ms-notice ms-notice--success" role="status" aria-live="polite" aria-atomic="true" title="@T("Common.Notification")" style="display:none;">
+</div>
+<div id="dialog-notifications-error" class="ms-notice ms-notice--error" role="alert" aria-live="assertive" aria-atomic="true" title="@T("Common.Error")" style="display:none;">
+</div>
+<div id="dialog-notifications-warning" class="ms-notice ms-notice--warning" role="alert" aria-live="assertive" aria-atomic="true" title="@T("Common.Warning")" style="display:none;">
+</div>
+<div id="bar-notification" class="bar-notification-container ms-notice-region" role="status" aria-live="polite" aria-atomic="true" data-close="@T("Common.Close")">
+</div>
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.Notifications })

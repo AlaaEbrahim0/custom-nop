@@ -1,0 +1,185 @@
+@model LoginModel
+@using Nop.Core
+@using Nop.Core.Domain.Customers
+
+@inject IWebHelper webHelper
+
+@* ModernStore override of Views/Customer/Login.cshtml.
+
+   The sign-in surface is now a two-panel entrance: an editorial welcome panel
+   carrying the wordmark and client notes, and a form panel that keeps the form
+   first in reading order. The register / guest block is a quiet strip below the
+   form instead of a second competing card.
+
+   Must not drift: the footer script below binds "#@Html.IdFor(m => m.Password)" and
+   toggles "password-eye-open" on ".password-eye", so the password input keeps its
+   asp-for and the eye <span> keeps its class and stays a sibling inside
+   .login-password. The form keeps asp-route + asp-route-returnurl +
+   autocomplete="off"; every asp-for and asp-validation-for, the LoginTop/LoginBottom
+   widget zones, the errors partial, the ExternalAuthentication component, the
+   LoginRegistrationInfo topic block, the onclick="location.href=..." on the
+   guest/register buttons and the registerUrl variable are the base view's. *@
+
+@{
+    Layout = "_ColumnsOne";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Login").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-login-page");
+
+    //register URL with return URL (if specified)
+    var registerUrl = Url.RouteUrl(NopRouteNames.Standard.REGISTER, new { returnUrl = this.Context.Request.Query["returnUrl"] }, webHelper.GetCurrentRequestProtocol());
+}
+
+<div class="page login-page ms-auth at-auth">
+    <div class="at-auth__layout">
+        <aside class="at-auth__intro">
+            @* Brand wordmark: delegated to the shared LogoViewComponent (same as the masthead)
+               so it shows the admin-uploaded logo when one is set and the store's own name
+               otherwise — the previous hardcoded OBSIDIAN/ATELIER leaked the theme brand onto
+               every real store. Auth styling keyed to .at-brand lives in atelier.css. *@
+            @await Component.InvokeAsync(typeof(LogoViewComponent))
+
+            <div class="at-auth__intro-copy">
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Client access</p>
+                <p class="at-auth__intro-title">The atelier,<br /><em>kept close.</em></p>
+                <p class="at-auth__intro-text">
+                    Follow your orders, keep a private list of objects and move through
+                    checkout without repeating what we already know.
+                </p>
+            </div>
+
+            <ul class="at-auth__notes">
+                <li><span>01</span> Order history &amp; dispatch notes</li>
+                <li><span>02</span> Saved addresses and private lists</li>
+                <li><span>03</span> First word on new releases</li>
+            </ul>
+
+            <a class="at-auth__back" href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">
+                <span aria-hidden="true">←</span> Return to the atelier
+            </a>
+        </aside>
+
+        <div class="at-auth__main">
+            @await Html.PartialAsync("_ExternalAuthentication.Errors")
+            <div class="page-body ms-auth__body at-auth__body">
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.LoginTop, additionalData = Model })
+
+                <header class="at-auth__head">
+                    <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> @T("Account.Login.ReturningCustomer")</p>
+                    <h1>@T("Account.Login.Welcome")</h1>
+                </header>
+
+                <div class="customer-blocks ms-auth__grid at-auth__grid">
+                    <div class="returning-wrapper fieldset ms-auth-card at-auth__card">
+                        <form asp-route="@NopRouteNames.General.LOGIN" asp-route-returnurl="@Context.Request.Query["ReturnUrl"]" method="post" autocomplete="off" class="ms-auth-form at-auth__form">
+                            <div asp-validation-summary="ModelOnly" class="message-error">@T("Account.Login.Unsuccessful")</div>
+                            <fieldset class="ms-auth-fieldset">
+                                <legend class="title ms-auth-card__heading sr-only">@T("Account.Login.ReturningCustomer")</legend>
+                                <div class="form-fields ms-auth-fields">
+                                    @if (Model.UsernamesEnabled)
+                                    {
+                                        <div class="inputs ms-field">
+                                            <label asp-for="Username" asp-postfix=":" class="ms-field__label"></label>
+                                            <input asp-for="Username" class="username ms-field__input" autofocus="autofocus" />
+                                            <span asp-validation-for="Username" class="ms-field__error"></span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="inputs ms-field">
+                                            <label asp-for="Email" asp-postfix=":" class="ms-field__label"></label>
+                                            <input asp-for="Email" class="email ms-field__input" autofocus="autofocus" />
+                                            <span asp-validation-for="Email" class="ms-field__error"></span>
+                                        </div>
+                                    }
+                                    <div class="inputs ms-field">
+                                        <label asp-for="Password" asp-postfix=":" class="ms-field__label"></label>
+                                        <div class="login-password ms-field__password">
+                                            <input asp-for="Password" class="password ms-field__input" />
+                                            <span class="password-eye ms-password-toggle"></span>
+                                        </div>
+                                        <span asp-validation-for="Password" class="ms-field__error"></span>
+                                    </div>
+                                    <div class="inputs reversed ms-field ms-field--reverse">
+                                        <input asp-for="RememberMe" class="ms-checkbox" />
+                                        <label asp-for="RememberMe"></label>
+                                        <span class="forgot-password ms-auth-forgot">
+                                            <a asp-route="@NopRouteNames.Standard.PASSWORD_RECOVERY">@T("Account.Login.ForgotPassword")</a>
+                                        </span>
+                                    </div>
+                                    @if (Model.DisplayCaptcha)
+                                    {
+                                        <nop-captcha />
+                                    }
+                                </div>
+                                <div class="buttons ms-auth-actions">
+                                    <button type="submit" class="button-1 login-button ms-auth-submit at-btn">@T("Account.Login.LoginButton")</button>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                    @if (Model.RegistrationType == UserRegistrationType.Disabled)
+                    {
+                        <div class="new-wrapper ms-auth-aside at-auth__register">
+                            <div class="at-auth__register-copy">
+                                <h2 class="title ms-auth-aside__heading">@T("Account.Register")</h2>
+                                <div class="text ms-auth-aside__text">@T("Account.Register.Result.Disabled")</div>
+                            </div>
+                        </div>
+                    }
+                    else if (Model.CheckoutAsGuest)
+                    {
+                        <div class="new-wrapper checkout-as-guest-or-register-block ms-auth-aside at-auth__register">
+                            <div class="at-auth__register-copy">
+                                <h2 class="title ms-auth-aside__heading">@T("Account.Login.CheckoutAsGuestOrRegister")</h2>
+                                <div class="text ms-auth-aside__text">
+                                    @await Component.InvokeAsync(typeof(TopicBlockViewComponent), new { systemName = "CheckoutAsGuestOrRegister" })
+                                </div>
+                            </div>
+                            <div class="buttons ms-auth-aside__actions at-auth__register-actions">
+                                <button type="button" class="button-2 checkout-as-guest-button ms-auth-aside__button at-btn at-btn--ghost" onclick="location.href='@Url.RouteUrl(NopRouteNames.Standard.CHECKOUT)'">@T("Account.Login.CheckoutAsGuest")</button>
+                                <button type="button" class="button-1 register-button ms-auth-aside__button at-btn" onclick="location.href='@registerUrl'">@T("Account.Register")</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="new-wrapper register-block ms-auth-aside at-auth__register">
+                            <div class="at-auth__register-copy">
+                                <h2 class="title ms-auth-aside__heading">@T("Account.Login.NewCustomer")</h2>
+                                <div class="text ms-auth-aside__text">@T("Account.Login.NewCustomerText")</div>
+                            </div>
+                            <div class="buttons ms-auth-aside__actions at-auth__register-actions">
+                                <button type="button" class="button-2 register-button ms-auth-aside__button at-btn at-btn--ghost" onclick="location.href='@registerUrl'">@T("Account.Register")</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="external-authentication ms-auth-social at-auth__social">
+                    @await Component.InvokeAsync(typeof(ExternalMethodsViewComponent), "ExternalAuthentication")
+                </div>
+                <div class="at-auth__topic">
+                    @await Component.InvokeAsync(typeof(TopicBlockViewComponent), new { systemName = "LoginRegistrationInfo" })
+                </div>
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.LoginBottom, additionalData = Model })
+            </div>
+        </div>
+    </div>
+</div>
+
+<script asp-location="Footer">
+    $(function () {
+        const password = $("#@Html.IdFor(m => m.Password)");
+
+        $(".password-eye").on("click", function () {
+            // toggle the type attribute
+            const type = password.attr("type") === "password" ? "text" : "password";
+            password.attr("type", type);
+
+            // toggle the icon
+            $(this).toggleClass("password-eye-open");
+        });
+    });
+</script>

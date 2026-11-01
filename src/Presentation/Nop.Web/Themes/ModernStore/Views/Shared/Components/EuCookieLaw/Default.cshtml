@@ -1,0 +1,56 @@
+@* ModernStore override of Views/Shared/Components/EuCookieLaw/Default.cshtml — the
+   component is EuCookieLaw, not EuCookieBar; the id it renders is
+   eu-cookie-bar-notification, which is why the two names differ here.
+
+   The footer script is the base's, byte for byte, because it is the whole mechanism:
+   it calls $('#eu-cookie-bar-notification').show() (so CSS must hide the bar by
+   default — there is no inline display:none in the base markup to lean on), binds the
+   click on #eu-cookie-ok, posts the anti-forgery token to
+   NopRouteNames.Ajax.EU_COOKIE_LAW_ACCEPT and hides the bar on success. Both ids,
+   that route and addAntiForgeryToken must not change, and nothing here may become a
+   child the script would remove — the script only toggles the root's visibility.
+
+   Presentation only: the bar becomes a compact, inset pill instead of a full-width
+   slab, and it is now a labelled region so a screen reader announces it as a cookie
+   notice rather than floating text. The "accept" class is added beside the base's
+   "ok-button button-1" because design-system.css already styles
+   .eu-cookie-bar-notification .accept (:4567). Legacy content / text / buttons-more /
+   ok-button / learn-more classes are all kept, and the three locale keys and the
+   "privacyinfo" topic route are unchanged.*@
+<script asp-location="Footer">
+    $(function() {
+        $('#eu-cookie-bar-notification').show();
+
+        $('#eu-cookie-ok').on('click', function () {
+            var postData = {};
+            addAntiForgeryToken(postData);
+
+            $.ajax({
+                cache: false,
+                type: "POST",
+                data: postData,
+                url: "@Url.RouteUrl(NopRouteNames.Ajax.EU_COOKIE_LAW_ACCEPT)",
+                dataType: "json",
+                success: function (data, textStatus, jqXHR) {
+                    $('#eu-cookie-bar-notification').hide();
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    alert('Cannot store value');
+                }
+            });
+        });
+    });
+</script>
+<div id="eu-cookie-bar-notification" class="eu-cookie-bar-notification ms-cookie-bar" role="region" aria-labelledby="ms-cookie-bar-text">
+    <div class="content ms-cookie-bar__inner">
+        <svg class="ms-cookie-bar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.2 5 5.6v5.6c0 4.3 2.8 7.4 7 9.1 4.2-1.7 7-4.8 7-9.1V5.6L12 3.2Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9.2 11.9 2 2 3.7-3.9" />
+        </svg>
+        <div class="text ms-cookie-bar__text" id="ms-cookie-bar-text">@T("EUCookieLaw.Description2")</div>
+        <div class="buttons-more ms-cookie-bar__actions">
+            <button type="button" class="ok-button accept button-1 ms-cookie-bar__ok" id="eu-cookie-ok">@T("Common.OK")</button>
+            <a class="learn-more ms-cookie-bar__learn" href="@await NopUrl.RouteTopicUrlAsync("privacyinfo")">@T("EUCookieLaw.LearnMore")</a>
+        </div>
+    </div>
+</div>

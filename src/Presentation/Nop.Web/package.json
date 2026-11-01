@@ -4,20 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "gulp",
-    "build:css": "npx tailwindcss -c tailwind.config.cjs -i Themes/ModernStore/Content/css/tailwind-input.css -o Themes/ModernStore/Content/css/tailwind.css --minify",
-    "watch:css": "npx tailwindcss -c tailwind.config.cjs -i Themes/ModernStore/Content/css/tailwind-input.css -o Themes/ModernStore/Content/css/tailwind.css --watch"
+    "build": "gulp"
   },
   "devDependencies": {
-    "autoprefixer": "^10.6.1",
     "del": "^7.0.0",
     "gulp": "^4.0.2",
     "gulp-filter": "^7.0.0",
     "gulp-rename": "^1.4.0",
     "gulp-zip": "^5.0.2",
-    "merge2": "^1.4.1",
-    "postcss": "^8.5.31",
-    "tailwindcss": "^3.4.19"
+    "merge2": "^1.4.1"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "7.0.1",

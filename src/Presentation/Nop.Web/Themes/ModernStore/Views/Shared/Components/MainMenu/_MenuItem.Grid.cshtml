@@ -1,0 +1,59 @@
+@model MenuItemModel
+
+@* ModernStore override of Views/Shared/Components/MainMenu/_MenuItem.Grid.cshtml.
+   Same list semantics as the List template: the label navigates, a chevron button
+   expands, and the panel is a real <ul>. The h4 became a span — a heading rank inside
+   the header chrome is noise, and legacy styles key on .menu__group-title, not the tag.*@
+@{
+    var panelId = "menu-panel-" + (int)Model.MenuItemType + "-" +
+                  (Model.Id > 0 ? Model.Id : Model.EntityId) + "-" + Model.Title.Replace(" ", "-");
+}
+@if (Model.ChildrenItems.Any())
+{
+    <li class="menu__item menu-dropdown @Model.CssClass" data-item-id="@Model.Id">
+        @await Html.PartialAsync("_MenuItem.cshtml", Model)
+        <button type="button" class="menu__item-toggle" aria-expanded="false" aria-controls="@panelId">
+            <span class="sr-only">@Model.Title</span>
+            <svg class="menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+        </button>
+        <ul class="menu__grid-view" id="@panelId">
+            @foreach (var item in Model.ChildrenItems)
+            {
+                <li class="menu__group">
+                    <a href="@item.Url" class="menu__image-link @(string.IsNullOrEmpty(item.Url) ? "menu__link--inactive" : "" )">
+                        @if (item.Picture is not null)
+                        {
+                            <img src="@item.Picture.ImageUrl" alt="@item.Picture.AlternateText" title="@item.Picture.Title" class="menu__image">
+                        }
+                        <span class="menu__group-title">@item.Title</span>
+                    </a>
+
+                    @if (item.ChildrenItems.Any())
+                    {
+                        <ul class="menu__group-links">
+                            @foreach (var menuItem in item.ChildrenItems)
+                            {
+                                <li class="menu__item menu__item--nested">
+                                    @await Html.PartialAsync("_MenuItem.cshtml", menuItem)
+                                </li>
+                            }
+                        </ul>
+                    }
+                </li>
+
+                @if (Model.NumberOfItemsPerGridRow > 0 && (Model.ChildrenItems.IndexOf(item) + 1) % Model.NumberOfItemsPerGridRow == 0)
+                {
+                    <li class="menu__row-braker" aria-hidden="true"></li>
+                }
+            }
+        </ul>
+    </li>
+}
+else
+{
+    <li class="menu__item @Model.CssClass">
+        @await Html.PartialAsync("_MenuItem.cshtml", Model)
+    </li>
+}

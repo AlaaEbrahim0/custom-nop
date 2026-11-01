@@ -1,0 +1,12 @@
+@model MenuItemModel
+
+@* ModernStore override of Views/Shared/Components/MainMenu/_MenuItem.cshtml.
+   The base stamps role="button" on every menu link, including plain navigational ones,
+   which announces a page change as a toggle. Focus is kept for the no-URL case. *@
+@{
+    var hasUrl = !string.IsNullOrEmpty(Model.Url);
+    var href = hasUrl ? $"href={Model.Url}" : "";
+    var focusable = hasUrl ? "" : "tabindex=0";
+}
+
+<a @href @focusable class="menu__link">@Model.Title</a>

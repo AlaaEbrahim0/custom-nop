@@ -1,0 +1,43 @@
+@model HomepageNewsItemsModel
+
+@using Nop.Core.Domain.News
+
+@*Theme override of Views/Shared/Components/HomepageNews/Default.cshtml — the
+  editorial journal band. Existing date and "view all" pieces are retained.*@
+@if (Model.NewsItems.Count > 0)
+{
+    var newsUrl = Url.RouteUrl(NopRouteNames.General.NEWS);
+
+    <section class="news-list-homepage ms-sec at-section at-journal__section">
+        <header class="at-section__head">
+            <div>
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> The atelier journal</p>
+                <h2 class="at-section__title">@T("News")</h2>
+            </div>
+            <div class="view-all at-section__aside">
+                <a class="at-section__link" href="@newsUrl">@T("News.ViewAll") <span aria-hidden="true">→</span></a>
+            </div>
+        </header>
+        <div class="news-items ms-news-grid at-journal-grid">
+            @foreach (var item in Model.NewsItems)
+            {
+                var itemUrl = await NopUrl.RouteGenericUrlAsync<NewsItem>(new { SeName = item.SeName });
+
+                <article class="news-item ms-news-card at-journal-card">
+                    <header class="news-head">
+                        <time datetime="@item.CreatedOn.ToString("yyyy-MM-dd")" class="news-date ms-news-card__date">@item.CreatedOn.ToString("D")</time>
+                        <h3 class="ms-news-card__title at-journal-card__title">
+                            <a href="@itemUrl">@item.Title</a>
+                        </h3>
+                    </header>
+                    <section class="news-body ms-news-card__body">
+                        @Html.Raw(item.Short)
+                    </section>
+                    <footer class="buttons ms-news-card__foot">
+                        <a href="@itemUrl" class="read-more ms-news-card__more at-link-arrow">@T("News.MoreInfo") <span aria-hidden="true">→</span></a>
+                    </footer>
+                </article>
+            }
+        </div>
+    </section>
+}

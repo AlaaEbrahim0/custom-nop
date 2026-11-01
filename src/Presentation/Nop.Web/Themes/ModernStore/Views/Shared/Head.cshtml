@@ -10,32 +10,66 @@
     var themeName = await themeContext.GetWorkingThemeNameAsync();
     var supportRtl = await Html.ShouldUseRtlThemeAsync();
 
+    //NopHtml.AppendCssFileParts inserts at index 0 (NopHtmlHelper._cssParts.Insert), so the
+    //cascade is emitted in REVERSE of the calls below. List lowest-priority first — the
+    //stylesheet that must win comes off the tongue last. Same idiom as DefaultClean/Head.cshtml.
+    //Effective render order: jquery-ui -> swiper -> styles -> design-system -> atelier.
+    //Remember this helper inserts at index 0, so the LAST visual layer is registered FIRST.
+
+    //Obsidian Atelier layer. It re-tokens the design system and reshapes the
+    //editorial surfaces (home, catalog, PDP, cart, checkout, account) on top.
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/atelier.css");
+
+    //design system: design tokens, component overrides, responsive layout
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/design-system.css");
+
+    //add main CSS file (base theme styles — overridden by everything above)
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/styles{(supportRtl ? ".rtl" : "")}.css");
+
+    //add swiper css + script
+    //Core gates swiper on CatalogSettings.DisplayAllPicturesOnCatalogPages — the script in
+    //Views/Shared/_Root.Head.cshtml, the css in whichever Head.cshtml is active. The Slides
+    //widget zone emits `.swiper.nop-slider` and calls `new Swiper(...)` regardless of that
+    //setting, so with it off the store's hero rendered as an uninitialised stack of
+    //full-size banners. The css is ours to emit; the script only when core does not.
+    NopHtml.AppendCssFileParts("~/lib_npm/swiper/swiper-bundle.min.css");
+
+    if (!catalogSettings.DisplayAllPicturesOnCatalogPages)
+    {
+        NopHtml.AppendScriptParts(ResourceLocation.Footer, "~/lib_npm/swiper/swiper-bundle.min.js");
+    }
+
     //add jQuery UI css file (load first so our styles override it)
     NopHtml.AppendCssFileParts("~/lib_npm/jquery-ui-dist/jquery-ui.min.css");
 
-    //add swiper css file
-    if (catalogSettings.DisplayAllPicturesOnCatalogPages)
-    {
-        NopHtml.AppendCssFileParts("~/lib_npm/swiper/swiper-bundle.min.css");
-    }
-
-    //add main CSS file (base theme styles)
-    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/styles{(supportRtl ? ".rtl" : "")}.css");
-
-    //add Tailwind CSS utilities (generated from tailwind.config.cjs)
-    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/tailwind.css");
-
-    //add design system: design tokens, component overrides, responsive layout
-    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/design-system.css");
-
-    //theme interactions (sticky menu shadow, back-to-top)
+    //theme interactions (sticky menu shadow, back-to-top, theme toggle)
     NopHtml.AppendScriptParts(ResourceLocation.Footer, $"~/Themes/{themeName}/Content/js/theme.js");
 
-    //Arabic web font. Registered as head markup rather than a CSS @import because the
-    //stylesheet bundler drops @import rules that are not at the top of the bundle.
-    //AppendHeadCustomParts inserts first, so the font is available before the CSS applies.
-    NopHtml.AppendHeadCustomParts(
-        "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />" +
-        "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />" +
-        "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap\" />");
+    //The webfont <link> and the theme script are emitted as markup below, NOT through
+    //NopHtml.AppendHeadCustomParts: _Root.Head.cshtml calls GenerateHeadCustom() before it
+    //renders this partial, so anything appended from here is already past the buffer and is
+    //silently dropped. (That is why the fonts never loaded.) Head.cshtml renders inside <head>
+    //after the stylesheets, which is still before the body paints.
 }
+
+@* Web fonts. Playfair Display = editorial display; Inter = prose/data; Plus Jakarta Sans =
+   uppercase labels; Cairo is the Arabic fallback (none of the Latin faces ship Arabic
+   glyphs, so the RTL layer swaps display and body roles to Cairo). *@
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&family=Cairo:wght@300;400;500;600;700;800&display=swap" />
+
+@* Applied before first paint so a returning visitor never sees the other theme flash.
+   Dark is the default and the fallback: it is the store's identity, and the light ramp is
+   the derived one. asp-location="None" is load-bearing: the global NopScriptTagHelper
+   moves unmarked inline scripts to the footer bundle, which painted a whole dark page
+   before a returning visitor's light choice could be restored. *@
+<script asp-location="None">
+    (function () {
+        var theme = 'dark';
+        try {
+            if (window.localStorage && window.localStorage.getItem('ms-theme') === 'light') { theme = 'light'; }
+        } catch (e) { /* private mode or storage disabled: stay on the default */ }
+        document.documentElement.setAttribute('data-ms-theme', theme);
+    })();
+</script>

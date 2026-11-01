@@ -1,0 +1,24 @@
+@model PollModel
+
+@* ModernStore override of Views/Shared/Components/PollBlock/Default.cshtml.
+
+   Presentation only, and deliberately thin: this is the block chrome, the poll itself
+   is the _Poll partial (overridden beside this file). section.block / .block-poll /
+   .title / .listbox all keep their legacy classes, the Polls.Title key is untouched,
+   and Html.PartialAsync("_Poll", Model) stays the single call the block makes — which
+   matters because the AJAX vote replaces #poll-block-{Id} from inside that partial and
+   re-renders it, so this wrapper must not be what carries the id.
+
+   The head reuses the theme's existing section chrome hooks (ms-sec / ms-sec-head /
+   ms-sec-title, design-system.css:2049-2082) rather than inventing poll-specific
+   ones, so the poll block matches the other homepage bands with no new CSS.*@
+<section class="block block-poll ms-sec">
+    <header class="ms-sec-head">
+        <h2 class="title ms-sec-title">
+            @T("Polls.Title")
+        </h2>
+    </header>
+    <div class="listbox ms-sec-body">
+        @await Html.PartialAsync("_Poll", Model)
+    </div>
+</section>

@@ -1,0 +1,115 @@
+@model CatalogProductsModel
+@*Theme override of Views/Catalog/_CatalogSelectors.cshtml. Every selector the
+  catalog AJAX relies on is untouched: [data-viewmode] plus its `selected` class,
+  #products-orderby and #products-pagesize, and the three footer scripts verbatim.*@
+
+@if (Model.Products.Count <= 0 &&
+     !Model.PriceRangeFilter.Enabled &&
+     !Model.SpecificationFilter.Enabled &&
+     !Model.ManufacturerFilter.Enabled)
+{
+    return;
+}
+
+@{
+    // Only rendered when this page actually has a filter panel to open; pages that
+    // call the selectors without the CatalogFilters section (recently added) keep
+    // their old toolbar.
+    var hasCatalogFilters = Model.PriceRangeFilter.Enabled ||
+        Model.SpecificationFilter.Enabled ||
+        Model.ManufacturerFilter.Enabled;
+}
+
+<div class="product-selectors ms-toolbar">
+    @if (hasCatalogFilters)
+    {
+        @* Mobile entry point for the filter bottom sheet; hidden at 1024px and up,
+           where the rail itself is visible. *@
+        <button type="button" class="at-filter-trigger" data-ms-drawer-toggle aria-controls="catalog-filter-panel" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" d="M4 7h9m4 0h3M4 17h3m4 0h9M15.5 4.5v5M7.5 14.5v5" />
+            </svg>
+            <span>Filters</span>
+            <span class="at-filter-trigger__count" data-at-filter-count hidden>0</span>
+        </button>
+    }
+
+    @*view mode*@
+    @if (Model.AllowProductViewModeChanging)
+    {
+        <div class="product-viewmode ms-toolbar__group ms-seg" role="group" aria-label="@T("Catalog.ViewMode").Text">
+            <span class="ms-toolbar__label" id="catalog-viewmode-label">@T("Catalog.ViewMode")</span>
+            @if (Model.AvailableViewModes.Count > 1)
+            {
+                var gridMode = Model.AvailableViewModes[0];
+                var listMode = Model.AvailableViewModes[1];
+
+                <button type="button" class="viewmode-icon grid ms-seg__btn @(gridMode.Selected ? "selected" : null)" data-viewmode="@gridMode.Value" title="@gridMode.Text">@gridMode.Text</button>
+                <button type="button" class="viewmode-icon list ms-seg__btn @(listMode.Selected ? "selected" : null)" data-viewmode="@listMode.Value" title="@listMode.Text">@listMode.Text</button>
+            }
+        </div>
+        <script asp-location="Footer">
+            $(function() {
+                var $viewModeEls = $('[data-viewmode]');
+                $viewModeEls.on('click', function () {
+                    if (!$(this).hasClass('selected')) {
+                        $viewModeEls.toggleClass('selected');
+                        CatalogProducts.getProducts();
+                    }
+                    return false;
+                });
+
+                $(CatalogProducts).on('before', function (e) {
+                    var $viewModeEl = $('[data-viewmode].selected');
+                    if ($viewModeEl) {
+                        e.payload.urlBuilder
+                            .addParameter('viewmode', $viewModeEl.data('viewmode'));
+                    }
+                });
+            });
+        </script>
+    }
+
+    @if (Model.AllowProductSorting)
+    {
+        <div class="product-sorting ms-toolbar__group">
+            <label class="ms-toolbar__label" for="products-orderby">@T("Catalog.OrderBy")</label>
+            @Html.DropDownList("products-orderby", Model.AvailableSortOptions, new { aria_label = T("Catalog.OrderBy.Label") })
+        </div>
+        <script asp-location="Footer">
+            $(function() {
+                var $orderByEl = $('#products-orderby');
+                $orderByEl.on('change', function () {
+                    CatalogProducts.getProducts();
+                });
+
+                $(CatalogProducts).on('before', function (e) {
+                    e.payload.urlBuilder
+                        .addParameter('orderby', $orderByEl.val());
+                });
+            });
+        </script>
+    }
+
+    @if (Model.AllowCustomersToSelectPageSize)
+    {
+        <div class="product-page-size ms-toolbar__group">
+            <label class="ms-toolbar__label" for="products-pagesize">@T("Catalog.PageSize")</label>
+            @Html.DropDownList("products-pagesize", Model.PageSizeOptions, new { aria_label = T("Catalog.PageSize.Label") })
+            <span class="ms-toolbar__suffix">@T("Catalog.PageSize.PerPage")</span>
+        </div>
+        <script asp-location="Footer">
+            $(function() {
+                var $pageSizeEl = $('#products-pagesize');
+                $pageSizeEl.on('change', function () {
+                    CatalogProducts.getProducts();
+                });
+
+                $(CatalogProducts).on('before', function (e) {
+                    e.payload.urlBuilder
+                        .addParameter('pagesize', $pageSizeEl.val());
+                });
+            });
+        </script>
+    }
+</div>

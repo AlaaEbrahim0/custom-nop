@@ -1,0 +1,71 @@
+@model ProductDetailsModel.ProductBreadcrumbModel
+
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Common
+
+@inject CommonSettings commonSettings
+
+@* ModernStore override of Views/Product/_ProductBreadcrumb.cshtml (rendered as a
+   partial from ProductTemplate.Simple.cshtml:58 and ProductTemplate.Grouped.cshtml:58,
+   so it resolves through the theme's Views/Shared probe).
+
+   The trail itself is untouched: Model.Enabled, Model.CategoryBreadcrumb and
+   Model.ProductName are what the base reads, and NopHtml.AddJsonLdParts(Model.JsonLd)
+   is still the first statement in the code block, because that is what publishes the
+   BreadcrumbList to Google. Both widget zones keep the base's position —
+   ProductBreadcrumbBefore is the first child of the list, ProductBreadcrumbAfter is
+   inside the last item. The empty <span id="…product url…"> on the current item is the
+   base's too; nothing in wwwroot/js reads it, but it is an id and it stays.
+
+   Presentation only: a <nav> landmark around the list, every separator is now a
+   dedicated element (class "delimiter" kept, ms-crumb__sep added, aria-hidden so a
+   screen reader does not read punctuation), the last crumb is non-link text carrying
+   aria-current="page", and the <a>/<span> nesting of the home item is flattened.
+
+   Two things to note for the CSS side:
+   - ms-crumb__sep still contains the admin-configured
+     CommonSettings.BreadcrumbDelimiter text (default "/"). The delimiter is not
+     dropped, so the setting survives for anything else reading the markup; to get a
+     chevron instead, zero that glyph out (font-size: 0) and paint
+     ms-crumb__sep::before with a mask or border chevron.
+   - point that chevron toward inline-end and flip it under dir="rtl" —
+     transform: scaleX(-1) — so it runs along the reading direction rather than
+     against it.
+   - design-system.css already emits content: ' / ' on .breadcrumb li + li::before
+     (:1737); with these separators that becomes two marks per hop, so that rule should
+     go when ms-crumb__sep is styled.*@
+@{
+    var breadcrumbDelimiter = commonSettings.BreadcrumbDelimiter;
+    
+    NopHtml.AddJsonLdParts(Model.JsonLd);
+}
+@if (Model.Enabled)
+{
+    @* aria-label reuses Products.Breadcrumb.Top: there is no dedicated breadcrumb
+       locale key in this store and inventing one would print the raw key. *@
+    <nav class="breadcrumb ms-crumb" aria-label="@T("Products.Breadcrumb.Top")">
+        <ul class="ms-crumb__list">
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductBreadcrumbBefore, additionalData = Model })
+            <li class="ms-crumb__item">
+                <a class="ms-crumb__link" href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">
+                    <span class="ms-crumb__text">@T("Products.Breadcrumb.Top")</span>
+                </a>
+                <span class="delimiter ms-crumb__sep" aria-hidden="true">@breadcrumbDelimiter</span>
+            </li>            
+            @foreach (var category in Model.CategoryBreadcrumb)
+            {
+                <li class="ms-crumb__item">
+                    <a class="ms-crumb__link" href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = category.SeName }))">
+                        <span class="ms-crumb__text">@category.Name</span>
+                    </a>
+                    <span class="delimiter ms-crumb__sep" aria-hidden="true">@breadcrumbDelimiter</span>
+                </li>
+            }
+            <li class="ms-crumb__item ms-crumb__item--current">
+                <strong class="current-item ms-crumb__current" aria-current="page">@Model.ProductName</strong>
+                <span id="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = Model.ProductSeName }))"></span>
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductBreadcrumbAfter, additionalData = Model })
+            </li>
+        </ul>
+    </nav>
+}

@@ -205,3 +205,24 @@ src/Presentation/Nop.Web/wwwroot/sitemaps/*
 !src/Presentation/Nop.Web/wwwroot/sitemaps/Index.htm
 src/packages/*
 src/Tests/Nop.Tests/Connections.resx
+
+# --- Agent / tooling scratch (local, not part of the product) ---
+.qoder/
+.claude/
+src/.claude/
+.mcp.json
+src/.mcp.json
+.xerj-data/
+AGENTS.md
+src/AGENTS.md
+
+# --- Large design/build archives & scratch images (never shipped) ---
+/nopCommerce_4.90.8_Source.zip
+/stitch-design/
+/stitch_extracted/
+/stitch_modern_dark_nopcommerce_redesign.zip
+/stitch_modern_dark_nopcommerce_redesign*.zip
+/screenshot-*.png
+
+# --- Working notes (contain local absolute paths) ---
+/ModernStore-ENGINEERING-LOG.md

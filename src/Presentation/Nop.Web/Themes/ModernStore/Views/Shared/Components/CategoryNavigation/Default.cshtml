@@ -1,0 +1,107 @@
+@model CategoryNavigationModel
+
+@using Nop.Core.Domain.Catalog
+
+@* ModernStore override of Views/Shared/Components/CategoryNavigation/Default.cshtml.
+
+   The base nav only prints the sublist for the active branch and gives no control
+   to open the others. Here every branch that has children carries a disclosure
+   button and its sublist is rendered in normal flow (hidden when closed), so an
+   expanded branch pushes the following categories down instead of stacking an
+   absolutely positioned panel on top of them.
+
+   The component model, the active-branch recursion and every category URL are
+   unchanged. The list only gains class names, a stable sublist id and the
+   data-at-category-toggle hook used by initCategoryTree() in theme.js. *@
+
+@functions {
+    bool BreadCrumbContainsCurrentCategoryId(CategorySimpleModel category)
+    {
+        if (Model.CurrentCategoryId == 0)
+            return false;
+
+        if (category.Id == Model.CurrentCategoryId)
+            return true;
+
+        foreach (var subCategory in category.SubCategories)
+        {
+            if (BreadCrumbContainsCurrentCategoryId(subCategory))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    async Task CategoryLine(CategoryNavigationModel.CategoryLineModel lineModel)
+    {
+        var category = lineModel.Category;
+        var isCurrent = category.Id == lineModel.CurrentCategoryId;
+        var branchActive = isCurrent || category.SubCategories.Count(BreadCrumbContainsCurrentCategoryId) > 0;
+        var hasChildren = category.SubCategories.Count > 0;
+        var sublistId = $"at-category-list-{category.Id}";
+
+        <li class="at-category-nav__item @(branchActive ? "active" : "inactive")@(isCurrent ? " last" : "")">
+            <div class="at-category-nav__row">
+                <a class="at-category-nav__link" href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = category.SeName }))" aria-current="@(isCurrent ? "page" : null)">
+                    <span class="at-category-nav__name">@category.Name</span>
+                    @if (category.NumberOfProducts.HasValue)
+                    {
+                        <span class="at-category-nav__count">
+                            <span aria-hidden="true">@category.NumberOfProducts.Value</span>
+                            <span class="sr-only">@T("Categories.TotalProducts", category.NumberOfProducts.Value)</span>
+                        </span>
+                    }
+                </a>
+                @if (hasChildren)
+                {
+                    <button type="button"
+                            class="at-category-nav__toggle"
+                            data-at-category-toggle
+                            aria-controls="@sublistId"
+                            aria-expanded="@(branchActive ? "true" : "false")"
+                            aria-label="@($"{category.Name} — {T("Categories")}")">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                        </svg>
+                    </button>
+                }
+            </div>
+            @if (hasChildren)
+            {
+                <ul class="sublist at-category-nav__sublist" id="@sublistId" hidden="@(!branchActive)">
+                    @foreach (var subCategory in category.SubCategories)
+                    {
+                        var categoryLineModel = new CategoryNavigationModel.CategoryLineModel
+                        {
+                            CurrentCategoryId = lineModel.CurrentCategoryId,
+                            Category = subCategory
+                        };
+                        await CategoryLine(categoryLineModel);
+                    }
+                </ul>
+            }
+        </li>
+    }
+}
+
+@if (Model.Categories.Count > 0)
+{
+    <section class="block block-category-navigation at-category-nav">
+        <h2 class="title">@T("Categories")</h2>
+        <div class="listbox">
+            <ul class="list at-category-nav__list">
+                @foreach (var category in Model.Categories)
+                {
+                    var categoryLineModel = new CategoryNavigationModel.CategoryLineModel
+                    {
+                        CurrentCategoryId = Model.CurrentCategoryId,
+                        Category = category
+                    };
+                    await CategoryLine(categoryLineModel);
+                }
+            </ul>
+        </div>
+    </section>
+}

@@ -1,0 +1,38 @@
+@model IList<CategoryModel>
+
+@using Nop.Core.Domain.Catalog
+
+@*Theme override of Views/Shared/Components/HomepageCategories/Default.cshtml —
+  image-led department tiles. Base emitted .item-box with the title above the picture,
+  which is why design-system.css rules written against .category-item never applied here.*@
+@if (Model.Count > 0)
+{
+    <section class="category-grid home-page-category-grid ms-sec at-section at-department-section">
+        <header class="at-section__head">
+            <div>
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Department archive</p>
+                <h2 class="at-section__title">@T("Categories")</h2>
+            </div>
+        </header>
+        <div class="item-grid ms-tile-grid at-department-grid">
+            @{ var position = 1; }
+            @foreach (var item in Model)
+            {
+                var categoryUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = item.SeName });
+                <article class="item-box ms-tile at-department">
+                    <a class="ms-tile__link at-department__link" href="@categoryUrl" title="@item.PictureModel.Title">
+                        <span class="ms-tile__media at-department__media">
+                            <img alt="@item.PictureModel.AlternateText" src="@item.PictureModel.ImageUrl" loading="lazy" />
+                        </span>
+                        <span class="ms-tile__scrim at-department__scrim" aria-hidden="true"></span>
+                        <span class="at-department__index" aria-hidden="true">@((position++).ToString("00"))</span>
+                        <h2 class="ms-tile__label at-department__label">
+                            <span>@item.Name</span>
+                            <span class="ms-tile__arrow" aria-hidden="true"></span>
+                        </h2>
+                    </a>
+                </article>
+            }
+        </div>
+    </section>
+}

@@ -1,0 +1,166 @@
+@model SearchBoxModel
+
+@* ModernStore override of Views/Shared/Components/SearchBox/Default.cshtml.
+   Markup only: the field becomes an input group with a leading icon, and the submit
+   keeps its text label for screen readers and for narrow screens where it is hidden.
+   The form id, the input name/id, the category select, the submit handler and the
+   autocomplete configuration are the base component's, unchanged — public.common.js and
+   the jQuery UI menu both key off #small-search-box-form and #small-searchterms.*@
+@{
+    const string categoryFormName = "cid";
+    const string termFormName = "q";
+    const string searchBoxId = "small-searchterms";
+}
+
+<form asp-route="@NopRouteNames.General.SEARCH" method="get" id="small-search-box-form" class="ms-search">
+    @if (Model.ShowSearchBox)
+    {
+        <div class="ms-search__field">
+            <svg class="ms-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+            </svg>
+            <input type="text" class="search-box-text" id="@searchBoxId" autocomplete="off" name="@termFormName" placeholder="@T("Search.SearchBox.Tooltip")" aria-label="@T("Search.SearchBox.Text.Label")" />
+            @if (Model.ShowSearchBoxCategories)
+            {
+                <select asp-for="SearchCategoryId" name="@categoryFormName" asp-items="Model.AvailableCategories" class="search-box-category"></select>
+                <script asp-location="Footer">
+                    $(function () {
+                        $('#@Html.IdFor(m => m.SearchCategoryId)').on('change', function () {
+                            $('#@searchBoxId').focus();
+                        });
+                    });
+                </script>
+            }
+        </div>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.SearchBoxBeforeSearchButton, additionalData = Model })
+        <button type="submit" class="button-1 search-box-button ms-search__submit">
+            <svg class="ms-search__submit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+            </svg>
+            <span class="ms-search__submit-label">@T("Search.Button")</span>
+        </button>
+
+        <script asp-location="Footer">
+            $("#small-search-box-form").on("submit", function (event) {
+
+                event.preventDefault();
+
+                @if(Model.SearchTermMinimumLength > 0)
+                {
+                    <text>
+                    if ($("#@searchBoxId").val() == "") {
+                        alert('@Html.Raw(JavaScriptEncoder.Default.Encode(T("Search.EnterSearchTerms").Text))');
+                        $("#@searchBoxId").focus();
+                        return;
+                    }
+                    </text>
+                }
+
+                var form = document.getElementById('small-search-box-form');
+                var formData = new FormData(form);
+
+                @if(Model.ShowSearchBoxCategories)
+                {
+                    <text>
+                    var selectedCategory = formData.get('@categoryFormName');
+                    if (selectedCategory && selectedCategory != '0') {
+                        formData.append('advs', true);
+                        formData.append('isc', true);
+                    }
+                    </text>
+                }
+
+                window.location.href = `@Url.RouteUrl(NopRouteNames.General.SEARCH)?${new URLSearchParams(formData).toString()}`;
+            });
+        </script>
+
+        @if (Model.AutoCompleteEnabled)
+        {
+            <script asp-location="Footer">
+                $(function() {
+                    var cache = new Map();
+                    var showLinkToResultSearch;
+                    // Server-generated search route (no user input). The old code hardcoded
+                    // "/search"; using the routed URL keeps this correct when the store's
+                    // search route or store path differs.
+                    var searchUrl = '@Url.RouteUrl(NopRouteNames.General.SEARCH)';
+
+                    $('#@searchBoxId').autocomplete({
+                        delay: 500,
+                        minLength: @Model.SearchTermMinimumLength,
+                        source: function (request, response) {
+                            var term = request.term && request.term.trim().toLowerCase();
+                            var categoryElement = $('#@Html.IdFor(m => m.SearchCategoryId)');
+                            var categoryId = categoryElement.length == 0 ? 0 : categoryElement.val()
+
+                            var query = { term, categoryId };
+                            var cacheKey = JSON.stringify(query);
+
+                            if (cache.has(cacheKey)) {
+                                response(cache.get(cacheKey));
+                                return;
+                            }
+
+                            $.getJSON('@(Url.RouteUrl(NopRouteNames.Ajax.PRODUCT_SEARCH_AUTOCOMPLETE))', query, function (data, status, xhr) {
+                                cache.set(cacheKey, data);
+                                response(data);
+                            });
+                        },
+                        appendTo: '.search-box',
+                        select: function(event, ui) {
+                            $("#@searchBoxId").val(ui.item.label);
+                            setLocation(ui.item.producturl);
+                            return false;
+                        },
+                        //append link to the end of list
+                        open: function(event, ui) {
+                            //display link to search page
+                            if (showLinkToResultSearch) {
+                                // Build the "view all results" link with DOM APIs, not string
+                                // concatenation: the raw query value must never be interpolated
+                                // into HTML or into an href unencoded (reflected DOM XSS).
+                                var term = document.getElementById("@searchBoxId").value;
+                                var li = document.createElement("li");
+                                li.className = "ui-menu-item";
+                                li.setAttribute("role", "presentation");
+                                var link = document.createElement("a");
+                                link.textContent = '@Html.Raw(JavaScriptEncoder.Default.Encode(T("Search.SearchBox.SearchPageLink").Text))';
+                                var params = new URLSearchParams();
+                                params.set("q", term);
+                                link.href = searchUrl + "?" + params.toString();
+                                li.appendChild(link);
+                                $(".ui-autocomplete").append(li);
+                            }
+                        }
+                    })
+                    .focus(function () {
+                        $(this).autocomplete('search', $(this).val());
+                    })
+                    .data("ui-autocomplete")._renderItem = function(ul, item) {
+                        showLinkToResultSearch = item.showlinktoresultsearch;
+                        var $li = $("<li></li>").data("item.autocomplete", item);
+                        var anchor = document.createElement("a");
+                        @if (Model.ShowProductImagesInSearchAutoComplete)
+                        {
+                            <text>
+                            // Set the src via the property, not by splicing into an HTML string.
+                            var img = document.createElement("img");
+                            img.src = item.productpictureurl;
+                            img.width = @(Model.AutoCompleteSearchThumbPictureSize);
+                            anchor.appendChild(img);
+                            </text>
+                        }
+                        // textContent escapes the label for us; no htmlEncode round-trip needed.
+                        var label = document.createElement("span");
+                        label.textContent = item.label;
+                        anchor.appendChild(label);
+                        $li.append(anchor);
+                        return $li.appendTo(ul);
+                    };
+                });
+            </script>
+        }
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.SearchBox, additionalData = Model })
+    }
+</form>

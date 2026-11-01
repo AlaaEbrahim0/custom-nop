@@ -1,0 +1,49 @@
+@model LogoModel
+
+@* ModernStore override of Views/Shared/Components/Logo/Default.cshtml.
+
+   nop's PrepareLogoModelAsync ALWAYS returns a path: the admin-uploaded logo when one is
+   configured (a /images/... url), else a fallback to this theme's
+   Content/images/logo.png. That fallback segment is the only value that ever contains
+   "Content/images/logo.png", so it is a reliable marker for "no real logo uploaded yet" —
+   in which case the Atelier wordmark renders instead of the stock image. This keeps the
+   admin Store-information logo working (the feature the masthead had silently dropped)
+   while preserving the art-directed default brand. Branding/copy re-branding is tracked
+   separately (Phase 4); this override is purely feature restoration + markup consolidation. *@
+
+@{
+    var storeName = Model.StoreName?.Trim();
+    var usesThemeWordmark = string.IsNullOrEmpty(storeName) ||
+        storeName.Equals("Your store name", StringComparison.OrdinalIgnoreCase);
+    var brandPrimary = usesThemeWordmark ? "OBSIDIAN" : storeName.ToUpperInvariant();
+    // Show the theme's "ATELIER" second line only as part of the default wordmark — never
+    // bolted onto an unrelated store name (which is what the old unconditional value did).
+    var brandSecondary = usesThemeWordmark ? "ATELIER" : null;
+    var homeUrl = Url.RouteUrl(NopRouteNames.General.HOMEPAGE);
+    var hasAdminLogo = !string.IsNullOrEmpty(Model.LogoPath) &&
+        Model.LogoPath.IndexOf("Content/images/logo.png", StringComparison.OrdinalIgnoreCase) < 0;
+}
+
+@if (hasAdminLogo)
+{
+    <a href="@homeUrl" class="at-brand-logo" aria-label="@storeName">
+        <img class="at-brand__logo" alt="@storeName" src="@Model.LogoPath" />
+    </a>
+}
+else
+{
+    <a href="@homeUrl" class="at-brand" aria-label="@(usesThemeWordmark ? "Obsidian Atelier" : storeName)">
+        <svg class="at-brand__mark" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+            <path d="M20 2.5 37.5 20 20 37.5 2.5 20 20 2.5Z" stroke="currentColor" stroke-width="1.1" />
+            <path d="M20 7.5 32.5 20 20 32.5 7.5 20 20 7.5Z" stroke="currentColor" stroke-width=".7" opacity=".65" />
+            <path d="M20 12.5 27.5 20 20 27.5 12.5 20 20 12.5Z" fill="currentColor" opacity=".22" />
+        </svg>
+        <span class="at-brand__words">
+            <span class="at-brand__primary">@brandPrimary</span>
+            @if (!string.IsNullOrEmpty(brandSecondary))
+            {
+                <span class="at-brand__secondary">@brandSecondary</span>
+            }
+        </span>
+    </a>
+}

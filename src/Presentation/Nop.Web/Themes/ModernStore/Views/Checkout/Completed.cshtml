@@ -1,0 +1,50 @@
+@model CheckoutCompletedModel
+@*Theme override of Views/Checkout/Completed.cshtml — the receipt card is the only
+  change: layout, head parts, page classes, the checkout progress component, both
+  widget zones, the order-details link and the continue button's setLocation handler
+  are the base view's verbatim. Every string already exists in the store's resources.*@
+@{
+    Layout = "_ColumnsOne";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Checkout").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-checkout-page");
+    NopHtml.AppendPageCssClassParts("html-order-completed-page");
+}
+<div class="page checkout-page order-completed-page">
+    @if (!Model.OnePageCheckoutEnabled)
+    {
+        @await Component.InvokeAsync(typeof(CheckoutProgressViewComponent), new { step = CheckoutProgressStep.Complete })
+    }
+    <div class="page-title">
+        <h1>@T("Checkout.ThankYou")</h1>
+    </div>
+    <div class="page-body checkout-data">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CheckoutCompletedTop, additionalData = Model })
+        <section class="section order-completed ms-confirm">
+            <div class="ms-confirm__mark" aria-hidden="true">
+                <svg viewBox="0 0 48 48" focusable="false">
+                    <circle cx="24" cy="24" r="21" />
+                    <path d="M15 25l6 6 12-13" />
+                </svg>
+            </div>
+            <h2 class="title ms-confirm__title">
+                @T("Checkout.YourOrderHasBeenSuccessfullyProcessed")
+            </h2>
+            <div class="details ms-confirm__meta">
+                <div class="order-number ms-confirm__number">
+                    <span class="ms-confirm__key">@T("Checkout.OrderNumber"):</span>
+                    <strong>@Model.CustomOrderNumber</strong>
+                </div>
+                <div class="details-link ms-confirm__link">
+                    <a href="@Url.RouteUrl(NopRouteNames.Standard.ORDER_DETAILS, new { orderID = Model.OrderId })">@T("Checkout.PlacedOrderDetails")</a>
+                </div>
+            </div>
+            <div class="buttons ms-confirm__actions">
+                <button type="button" class="button-1 order-completed-continue-button" onclick="setLocation('@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)')">@T("Checkout.ThankYou.Continue")</button>
+            </div>
+        </section>
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CheckoutCompletedBottom, additionalData = Model })
+    </div>
+</div>

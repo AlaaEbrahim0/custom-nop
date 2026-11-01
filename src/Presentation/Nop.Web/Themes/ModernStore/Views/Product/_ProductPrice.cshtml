@@ -1,0 +1,96 @@
+@model ProductPriceModel
+@*Theme override of Views/Product/_ProductPrice.cshtml.
+
+  Contract preserved: exactly one element carries the `price-value-@Model.ProductId`
+  class — public.combinationsbehavior.js updates the price with
+  `$('.price-value-N').text(data.price)` — and it gains the id only when there is no
+  discounted price, exactly as the base view does. `#base-price-pangv-N` keeps its id
+  (the same script hides it) and every legacy class name (`product-price`,
+  `discounted-price`, `non-discounted-price`, `old-product-price`, `rental-price`,
+  `call-for-price`, `base-price-pangv`, `tax-shipping-info`) is retained so plugins and
+  styles.css keep matching. The price labels become visually-hidden text: the base view
+  pointed <label for="price-value-N"> at an id that does not exist once a discounted
+  price is shown.*@
+
+@using Nop.Core
+@using Nop.Core.Domain.Tax
+
+@inject IWorkContext workContext
+
+@if (!Model.CustomerEntersPrice)
+{
+    var hasDeal = !string.IsNullOrWhiteSpace(Model.PriceWithDiscount);
+
+    var discountPercent = 0;
+    var oldPriceValue = Model.OldPriceValue;
+    var effectiveValue = hasDeal ? Model.PriceWithDiscountValue : Model.PriceValue;
+    if (oldPriceValue.HasValue && effectiveValue.HasValue && oldPriceValue.Value > 0 && effectiveValue.Value < oldPriceValue.Value)
+    {
+        discountPercent = (int)((1m - (effectiveValue.Value / oldPriceValue.Value)) * 100m);
+    }
+
+    <div class="prices ms-price">
+        @if (Model.CallForPrice)
+        {
+            @*call for price*@
+            <div class="product-price call-for-price ms-price__call">
+                <span>@T("Products.CallForPrice")</span>
+            </div>
+        }
+        else
+        {
+            if (Model.IsRental)
+            {
+                <div class="rental-price ms-price__row">
+                    <span class="ms-price__key">@T("Products.Price.RentalPrice"):</span>
+                    <span class="ms-price__rental">@Model.RentalPrice</span>
+                </div>
+            }
+            <div class="ms-price__main">
+                @if (hasDeal)
+                {
+                    <span class="sr-only">@T("Products.Price.WithDiscount"): </span>
+                    <span class="product-price discounted-price ms-price__amount price-value-@(Model.ProductId)">
+                        @Html.Raw(Model.PriceWithDiscount)
+                    </span>
+                }
+                else
+                {
+                    <span class="sr-only">@T("Products.Price"): </span>
+                    <span id="price-value-@(Model.ProductId)" class="product-price ms-price__amount price-value-@(Model.ProductId)">
+                        @Html.Raw(Model.Price)
+                    </span>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.OldPrice))
+                {
+                    <span class="old-product-price ms-price__was">
+                        <span class="sr-only">@T("Products.Price.OldPrice"): </span>@Model.OldPrice
+                    </span>
+                }
+                @if (hasDeal)
+                {
+                    <span class="non-discounted-price ms-price__was">@Html.Raw(Model.Price)</span>
+                }
+                @if (discountPercent > 0)
+                {
+                    <span class="ms-price__save">-@discountPercent%</span>
+                }
+            </div>
+            if (!string.IsNullOrEmpty(Model.BasePricePAngV))
+            {
+                <div class="base-price-pangv ms-price__unit" id="base-price-pangv-@Model.ProductId">
+                    @Model.BasePricePAngV
+                </div>
+            }
+            if (Model.DisplayTaxShippingInfo)
+            {
+                var inclTax = await workContext.GetTaxDisplayTypeAsync() == TaxDisplayType.IncludingTax;
+                //tax info is already included in the price (incl/excl tax). that's why we display only shipping info here
+                //of course, you can modify appropriate locales to include VAT info there
+                <div class="tax-shipping-info ms-price__note">
+                    @T(inclTax ? "Products.Price.TaxShipping.InclTax" : "Products.Price.TaxShipping.ExclTax", await NopUrl.RouteTopicUrlAsync("shippinginfo"))
+                </div>
+            }
+        }
+    </div>
+}

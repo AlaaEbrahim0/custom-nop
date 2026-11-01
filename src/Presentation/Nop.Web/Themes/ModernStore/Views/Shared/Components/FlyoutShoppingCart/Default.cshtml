@@ -1,0 +1,102 @@
+@model MiniShoppingCartModel
+
+@using Nop.Core.Domain.Catalog
+
+@*Theme override of Views/Shared/Components/FlyoutShoppingCart/Default.cshtml —
+  a click-opened slide-over instead of the hover flyout.
+
+  Contract that must not drift: public.ajaxcart.js:143 does
+  `$(AjaxCart.flyoutcartselector).replaceWith(response.updateflyoutcartsectionhtml)`,
+  i.e. this entire element is swapped for freshly rendered server markup on every
+  add/remove. So the root keeps id="flyout-cart" (the selector AjaxCart.init was
+  given), and theme.js re-applies the open class to the replacement node when the
+  swap lands — no listener is bound to this element, every handler is delegated on
+  document. Dismissal is Esc, the backdrop, and the named
+  "ShoppingCart.ContinueShopping" control; there is no Close/Popup.Close locale
+  resource in this store, so the × is decorative and the text button carries the
+  accessible name.*@
+<div id="flyout-cart" class="flyout-cart ms-drawer" role="dialog" aria-modal="true" aria-labelledby="flyout-cart-title" tabindex="-1">
+    <div class="ms-drawer__backdrop" data-ms-drawer-close></div>
+    <div class="ms-drawer__panel">
+        <header class="ms-drawer__head">
+            <h2 class="ms-drawer__title" id="flyout-cart-title">
+                @T("ShoppingCart")
+                @if (Model.TotalProducts > 0)
+                {
+                    <span class="ms-drawer__count">@Model.TotalProducts</span>
+                }
+            </h2>
+            <button type="button" class="ms-drawer__dismiss" data-ms-drawer-close>
+                @T("ShoppingCart.ContinueShopping")
+            </button>
+        </header>
+
+        @if (Model.TotalProducts == 0)
+        {
+            <div class="ms-drawer__empty">
+                <p class="ms-drawer__empty-text">@T("ShoppingCart.Mini.NoItems")</p>
+                <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)" class="button-1 ms-drawer__empty-cta">@T("ShoppingCart.ContinueShopping")</a>
+            </div>
+        }
+        else
+        {
+            <div class="ms-drawer__body">
+                <ul class="ms-drawer__items">
+                    @for (var i = 0; i < Model.Items.Count; i++)
+                    {
+                        var item = Model.Items[i];
+                        var itemUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName });
+
+                        <li class="ms-drawer__item">
+                            @if (Model.ShowProductImages)
+                            {
+                                <a class="ms-drawer__thumb" href="@itemUrl" title="@item.Picture.Title">
+                                    <img alt="@item.Picture.AlternateText" src="@item.Picture.ImageUrl" loading="lazy" />
+                                </a>
+                            }
+                            <div class="ms-drawer__info">
+                                <a class="ms-drawer__name" href="@itemUrl">@item.ProductName</a>
+                                @if (!string.IsNullOrEmpty(item.AttributeInfo))
+                                {
+                                    <div class="ms-drawer__attributes">
+                                        @Html.Raw(item.AttributeInfo)
+                                    </div>
+                                }
+                                <div class="ms-drawer__meta">
+                                    <span class="ms-drawer__quantity">@item.Quantity&nbsp;×</span>
+                                    <span class="ms-drawer__price">@item.UnitPrice</span>
+                                </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <footer class="ms-drawer__foot">
+                <div class="ms-drawer__subtotal">
+                    <span class="ms-drawer__subtotal-label">@T("ShoppingCart.Totals.SubTotal")</span>
+                    <strong class="ms-drawer__subtotal-value">@Model.SubTotal</strong>
+                </div>
+                <div class="ms-drawer__actions">
+                    @if (Model.DisplayShoppingCartButton)
+                    {
+                        <button type="button" class="button-2 cart-button ms-drawer__btn" onclick="setLocation('@(Url.RouteUrl(NopRouteNames.General.CART))')">@T("ShoppingCart.Mini.ViewCart")</button>
+                    }
+                    @if (Model.DisplayCheckoutButton)
+                    {
+                        var checkoutUrl = "";
+                        if (Model.AnonymousCheckoutAllowed && Model.CurrentCustomerIsGuest)
+                        {
+                            checkoutUrl = Url.RouteUrl(NopRouteNames.Standard.LOGIN_CHECKOUT_AS_GUEST, new { returnUrl = Url.RouteUrl(NopRouteNames.General.CART) });
+                        }
+                        else
+                        {
+                            checkoutUrl = Url.RouteUrl(NopRouteNames.Standard.CHECKOUT);
+                        }
+                        <button type="button" class="button-1 checkout-button ms-drawer__btn" onclick="setLocation('@checkoutUrl')">@T("Checkout.Button")</button>
+                    }
+                </div>
+            </footer>
+        }
+    </div>
+</div>

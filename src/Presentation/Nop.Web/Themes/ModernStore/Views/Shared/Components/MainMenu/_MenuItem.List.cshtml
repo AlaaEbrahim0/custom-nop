@@ -1,0 +1,41 @@
+@model MenuItemModel
+
+@* ModernStore override of Views/Shared/Components/MainMenu/_MenuItem.List.cshtml.
+
+   The base puts the toggle on a <div> that wraps the link, so the whole label is the
+   expander and the link inside it is nested interactive content. Here the label stays a
+   link that navigates, and a separate chevron <button> expands the panel.
+
+   Contract kept: .menu__item-toggle stays a direct child of .menu__item, because
+   public.menu.js toggles `menu-dropdown--active` on the toggle's parentNode.*@
+@{
+    // MenuItemModel.Id is only populated for hand-built menus; the category-derived
+    // fallback leaves it 0 and carries the referenced entity instead. Keying on Id
+    // alone gave every panel the same id.
+    var panelId = "menu-panel-" + (int)Model.MenuItemType + "-" +
+                  (Model.Id > 0 ? Model.Id : Model.EntityId) + "-" + Model.Title.Replace(" ", "-");
+}
+@if (Model.ChildrenItems.Any())
+{
+    <li class="menu__item menu-dropdown @Model.CssClass">
+        @await Html.PartialAsync("_MenuItem.cshtml", Model)
+        <button type="button" class="menu__item-toggle" aria-expanded="false" aria-controls="@panelId">
+            <span class="sr-only">@Model.Title</span>
+            <svg class="menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+        </button>
+        <ul class="menu__list-view" id="@panelId">
+            @foreach (var item in Model.ChildrenItems)
+            {
+                @await Html.PartialAsync("_MenuItem.List.cshtml", item)
+            }
+        </ul>
+    </li>
+}
+else
+{
+    <li class="menu__item @Model.CssClass">
+        @await Html.PartialAsync("_MenuItem.cshtml", Model)
+    </li>
+}

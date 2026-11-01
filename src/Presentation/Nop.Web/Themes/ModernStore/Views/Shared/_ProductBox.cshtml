@@ -1,0 +1,201 @@
+@model ProductOverviewModel
+
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Orders
+@using Nop.Core.Domain.Tax
+
+@inject CatalogSettings catalogSettings
+@inject IWorkContext workContext
+
+@{
+    //prepare "Add to cart" AJAX link
+    var addtocartlink = "";
+    var shoppingCartTypeId = (int)ShoppingCartType.ShoppingCart;
+    var quantity = 1;
+    if (Model.ProductPrice.ForceRedirectionAfterAddingToCart)
+    {
+        addtocartlink = Url.RouteUrl(NopRouteNames.Ajax.ADD_PRODUCT_TO_CART_CATALOG, new { productId = Model.Id, shoppingCartTypeId = shoppingCartTypeId, quantity = quantity, forceredirection = Model.ProductPrice.ForceRedirectionAfterAddingToCart });
+    }
+    else
+    {
+        addtocartlink = Url.RouteUrl(NopRouteNames.Ajax.ADD_PRODUCT_TO_CART_CATALOG, new { productId = Model.Id, shoppingCartTypeId = shoppingCartTypeId, quantity = quantity });
+    }
+
+    var addtowishlistlink = Url.RouteUrl(NopRouteNames.Ajax.ADD_PRODUCT_TO_CART_CATALOG, new { productId = Model.Id, shoppingCartTypeId = (int)ShoppingCartType.Wishlist, quantity = quantity });
+    var addtocomparelink = Url.RouteUrl(NopRouteNames.Ajax.ADD_PRODUCT_TO_COMPARE, new { productId = Model.Id });
+
+    var productUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = Model.SeName });
+
+    @* Discount percentage is derived from the decimal price values, not from the
+       formatted strings — OldPrice/Price are already currency-formatted for the
+       store language (Arabic-Indic digits, comma decimals), so parsing them would
+       be locale-fragile. The badge itself is "-N%", which needs no locale string;
+       there is no "New"/"Sale" resource in this store to borrow. *@
+    var discountPercent = 0;
+    var oldPriceValue = Model.ProductPrice.OldPriceValue;
+    var priceValue = Model.ProductPrice.PriceValue;
+    if (oldPriceValue.HasValue && priceValue.HasValue && oldPriceValue.Value > 0 && priceValue.Value < oldPriceValue.Value)
+    {
+        discountPercent = (int)((1m - (priceValue.Value / oldPriceValue.Value)) * 100m);
+    }
+
+    var firstPicture = Model.PictureModels.FirstOrDefault();
+    var eyebrow = catalogSettings.ShowSkuOnCatalogPages && !string.IsNullOrEmpty(Model.Sku)
+        ? Model.Sku
+        : null;
+}
+<article class="product-item ms-card at-card" data-productid="@Model.Id">
+    <div class="picture at-card__media">
+        @if (Model.PictureModels.Count > 1)
+        {
+            <div class="swiper" id="swiper-@Model.Id" dir="@Html.GetUIDirection(!await Html.ShouldUseRtlThemeAsync())">
+                <div class="swiper-wrapper">
+                    @foreach (var picture in Model.PictureModels)
+                    {
+                        <a class="swiper-slide" href="@productUrl" title="@picture.Title">
+                            <img alt="@picture.AlternateText" src="@picture.ImageUrl" title="@picture.Title" loading="lazy" />
+                        </a>
+                    }
+                </div>
+                <div class="swiper-pagination"></div>
+            </div>
+
+            <script asp-location="Footer">
+                new Swiper('#swiper-@(Model.Id)', {
+                    pagination: {
+                        clickable: true,
+                        el: '#swiper-@(Model.Id) .swiper-pagination',
+                    },
+                });
+            </script>
+        }
+        else if (firstPicture != null)
+        {
+            <a href="@productUrl" title="@firstPicture.Title">
+                <img alt="@firstPicture.AlternateText" src="@firstPicture.ImageUrl" title="@firstPicture.Title" loading="lazy" />
+            </a>
+        }
+        else
+        {
+            <a href="@productUrl" class="at-card__placeholder" aria-label="@Model.Name">
+                <span aria-hidden="true"></span>
+            </a>
+        }
+
+        <div class="at-card__badges">
+            @if (discountPercent > 0)
+            {
+                <span class="ms-badge ms-badge--discount">−@discountPercent%</span>
+            }
+            else if (Model.ProductPrice.AvailableForPreOrder)
+            {
+                <span class="ms-badge ms-badge--soft">@T("ShoppingCart.PreOrder")</span>
+            }
+        </div>
+
+        <div class="ms-card-actions at-card__actions">
+            @if (!Model.ProductPrice.DisableAddToCompareListButton)
+            {
+                <button type="button" class="button-2 add-to-compare-list-button at-card__action" title="@T("ShoppingCart.AddToCompareList")" aria-label="@T("ShoppingCart.AddToCompareList")" onclick="AjaxCart.addproducttocomparelist('@addtocomparelink');return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h10m0 0-3-3m3 3-3 3M20 17H10m0 0 3-3m-3 3 3 3" />
+                    </svg>
+                </button>
+            }
+            @if (!Model.ProductPrice.DisableWishlistButton)
+            {
+                @await Html.PartialAsync("_MoveToWishlistModal", Model.ProductToWishlist)
+
+                <button type="button" class="button-2 add-to-wishlist-button at-card__action" title="@T("ShoppingCart.AddToWishlist")" aria-label="@T("ShoppingCart.AddToWishlist")" onclick="AjaxCart.addproducttocart_catalog('@addtowishlistlink');return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25 4.9 13.2A4.5 4.5 0 0 1 11.25 6.3l.75.7.75-.7a4.5 4.5 0 0 1 6.35 6.9Z" />
+                    </svg>
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="details at-card__body">
+        @if (!string.IsNullOrEmpty(eyebrow))
+        {
+            <div class="at-card__kicker">
+                <span class="at-card__sku">@eyebrow</span>
+            </div>
+        }
+
+        <h2 class="product-title at-card__title">
+            <a href="@productUrl">@Model.Name</a>
+        </h2>
+
+        @{
+            // Customer review stars. _ProductBox is the single card shared by every
+            // catalog surface (grids, search, related, cross-sell, all homepage bands),
+            // so dropping this block removed social proof sitewide even though
+            // ReviewOverviewModel is still prepared by the server. Restored here, shown
+            // only when reviews actually exist (0-review products would paint empty stars).
+            var review = Model.ReviewOverviewModel;
+        }
+        @if (review != null && review.AllowCustomerReviews && review.TotalReviews > 0)
+        {
+            var ratingPercent = ((review.RatingSum * 100) / review.TotalReviews) / 5;
+            var reviewsLabel = string.Format(T("Reviews.TotalReviews").Text, review.TotalReviews);
+            <div class="product-rating-box at-card__rating" title="@reviewsLabel">
+                <div class="rating" role="img" aria-label="@reviewsLabel">
+                    <div style="width: @ratingPercent%"></div>
+                </div>
+            </div>
+        }
+
+        <div class="description at-card__description" @(catalogSettings.ShowShortDescriptionOnCatalogPages ? "" : "data-short-description=none")>
+            @Html.Raw(Model.ShortDescription)
+        </div>
+
+        <div class="add-info at-card__add">
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductBoxAddinfoBefore, additionalData = Model })
+            <div class="ms-price-cta at-card__price-row">
+                <div class="prices at-card__price">
+                    @if (!string.IsNullOrEmpty(Model.ProductPrice.OldPrice))
+                    {
+                        <span class="price old-price">@Model.ProductPrice.OldPrice</span>
+                    }
+                    <span class="price actual-price">@Model.ProductPrice.Price</span>
+                    @if (Model.ProductPrice.DisplayTaxShippingInfo)
+                    {
+                        var inclTax = await workContext.GetTaxDisplayTypeAsync() == TaxDisplayType.IncludingTax;
+                        <span class="tax-shipping-info">
+                            @T(inclTax ? "Products.Price.TaxShipping.InclTax" : "Products.Price.TaxShipping.ExclTax", await NopUrl.RouteTopicUrlAsync("shippinginfo"))
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ProductPrice.BasePricePAngV))
+                    {
+                        <div class="base-price-pangv">@Model.ProductPrice.BasePricePAngV</div>
+                    }
+                </div>
+
+                <div class="buttons at-card__cta">
+                    @if (!Model.ProductPrice.DisableBuyButton)
+                    {
+                        var addToCartText = T("ShoppingCart.AddToCart").Text;
+                        if (Model.ProductPrice.IsRental)
+                        {
+                            addToCartText = T("ShoppingCart.Rent").Text;
+                        }
+                        if (Model.ProductPrice.AvailableForPreOrder)
+                        {
+                            addToCartText = T("ShoppingCart.PreOrder").Text;
+                        }
+                        <button type="button" class="button-2 product-box-add-to-cart-button at-card__add-button" onclick="AjaxCart.addproducttocart_catalog('@addtocartlink');return false;">
+                            <span>@addToCartText</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                            </svg>
+                        </button>
+                    }
+                </div>
+            </div>
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductBoxAddinfoMiddle, additionalData = Model })
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductBoxAddinfoAfter, additionalData = Model })
+        </div>
+    </div>
+</article>

@@ -1,0 +1,121 @@
+@model CatalogProductsModel
+@*Theme override of Views/Catalog/_ProductsInGridOrLines.cshtml — the partial the
+  catalog AJAX endpoints return, so everything here re-renders on every filtered
+  load. Active-filter chips are therefore server-rendered from the same model the
+  filter panel uses, and never need client-side syncing.*@
+
+@{
+    // A chip is only meaningful if the control it clears is on the page, and the
+    // panel renders each group solely from its Enabled flag — mirror that here.
+    var chips = new List<(string Key, string Value, string Clear)>();
+
+    if (Model.ManufacturerFilter.Enabled)
+    {
+        foreach (var manufacturer in Model.ManufacturerFilter.Manufacturers.Where(m => m.Selected))
+        {
+            chips.Add((null, manufacturer.Text, "attribute-manufacturer-" + manufacturer.Value));
+        }
+    }
+
+    if (Model.SpecificationFilter.Enabled)
+    {
+        foreach (var attribute in Model.SpecificationFilter.Attributes)
+        {
+            foreach (var value in attribute.Values.Where(v => v.Selected))
+            {
+                chips.Add((attribute.Name, value.Name, "attribute-option-" + value.Id));
+            }
+        }
+    }
+
+    if (Model.PriceRangeFilter.Enabled)
+    {
+        var selected = Model.PriceRangeFilter.SelectedPriceRange;
+        var available = Model.PriceRangeFilter.AvailablePriceRange;
+
+        if (selected != null && available != null &&
+            (selected.From != available.From || selected.To != available.To))
+        {
+            chips.Add((null,
+                $"{selected.From?.ToString() ?? "0"} – {selected.To?.ToString() ?? "∞"}",
+                "price"));
+        }
+    }
+}
+
+@if (chips.Count > 0 || Model.TotalItems > 0)
+{
+    <div class="ms-catalog__head">
+        @if (Model.TotalItems > 0)
+        {
+            <p class="ms-count">@T("Pager.CurrentPage", Model.PageIndex + 1, Model.TotalPages, Model.TotalItems)</p>
+        }
+        @if (chips.Count > 0)
+        {
+            <ul class="ms-chips">
+                @foreach (var chip in chips)
+                {
+                    <li class="ms-chip">
+                        @if (!string.IsNullOrEmpty(chip.Key))
+                        {
+                            <span class="ms-chip__key">@chip.Key</span>
+                        }
+                        <span class="ms-chip__value">@chip.Value</span>
+                        <button type="button" class="ms-chip__clear" data-ms-clear="@chip.Clear"
+                                aria-label="@(T("Common.Remove").Text + " " + chip.Value)">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M6 6l12 12M18 6L6 18" />
+                            </svg>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.WarningMessage))
+{
+    <div class="warning" role="alert">
+        @Model.WarningMessage
+    </div>
+}
+
+@if (Model.Products.Count > 0)
+{
+    <div class="@(Model.ViewMode == "list" ? "product-list" : "product-grid")">
+        <div class="item-grid">
+            @foreach (var product in Model.Products)
+            {
+                <div class="item-box">
+                    @await Html.PartialAsync("_ProductBox", product)
+                </div>
+            }
+        </div>
+    </div>
+
+    var pager = Html.Pager(Model)
+        .QueryParam("pagenumber")
+        // for search page
+        .BooleanParameterName("advs")
+        .BooleanParameterName("isc")
+        .BooleanParameterName("sid")
+        .RenderEmptyParameters(true);
+
+    @if (!await pager.IsEmpty())
+    {
+        <div class="pager ms-pager">
+            @pager
+        </div>
+    }
+}
+else if (!string.IsNullOrEmpty(Model.NoResultMessage))
+{
+    <div class="no-result ms-empty">
+        <svg class="ms-empty__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15zM21 21l-4.35-4.35" />
+        </svg>
+        <p class="ms-empty__message">@Model.NoResultMessage</p>
+        <a class="button-1 ms-empty__action" href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">@T("ShoppingCart.ContinueShopping")</a>
+    </div>
+}

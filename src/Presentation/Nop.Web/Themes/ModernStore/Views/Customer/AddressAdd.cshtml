@@ -1,0 +1,50 @@
+@model CustomerAddressEditModel
+
+@* ModernStore override of Views/Customer/AddressAdd.cshtml.
+
+   The fields are not duplicated here — the base renders Shared/_CreateOrUpdateAddress and
+   that partial is left alone. What this override improves is the page chrome around it: a
+   title row with a quiet "back to address book" action, a single card around the fields, and
+   a clear action footer.
+
+   Must not drift: the form's asp-route, the <div asp-validation-summary>, and the exact
+   ViewDataDictionary + HtmlFieldPrefix = "Address" call into _CreateOrUpdateAddress — every
+   field name the model binder reads is produced by that prefix. The save button keeps
+   .save-address-button and its type/name. No widget zone exists in the base page. *@
+
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Account").Text);
+    NopHtml.AppendPageCssClassParts("html-account-page");
+    //page class
+    NopHtml.AppendPageCssClassParts("html-address-edit-page");
+}
+
+@section left
+{
+    @await Component.InvokeAsync(typeof(CustomerNavigationViewComponent), new { selectedTabId = CustomerNavigationEnum.Addresses })
+}
+
+<form asp-route="@NopRouteNames.Standard.CUSTOMER_ADDRESS_ADD" method="post" class="ms-address-form">
+    <div class="page account-page address-edit-page ms-account">
+        <div class="page-title ms-account__title ms-page-head">
+            <h1>@T("Account.MyAccount") - @T("Account.CustomerAddresses.AddNew")</h1>
+            <a href="@Url.RouteUrl(NopRouteNames.General.CUSTOMER_ADDRESSES)" class="ms-page-back">@T("Common.Back")</a>
+        </div>
+        <div class="page-body ms-account__body">
+            <div asp-validation-summary="ModelOnly" class="message-error"></div>
+            <div class="ms-address-form__body">
+                @{
+                    var dataDictAddress = new ViewDataDictionary(ViewData);
+                    dataDictAddress.TemplateInfo.HtmlFieldPrefix = "Address";
+                    @await Html.PartialAsync("_CreateOrUpdateAddress", Model.Address, dataDictAddress)
+                }
+            </div>
+            <section class="buttons ms-form-actions">
+                <button type="submit" class="button-1 save-address-button ms-form-submit">@T("Common.Save")</button>
+            </section>
+        </div>
+    </div>
+</form>

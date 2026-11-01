@@ -1,0 +1,128 @@
+@model CustomerAddressListModel
+
+@* ModernStore override of Views/Customer/Addresses.cshtml.
+
+   The base address book is a flat stack of .address-item blocks whose first line repeats
+   the name twice (an h2.title and an li.name). Here each address is one card in a
+   responsive grid: name once and bold at the top, the street lines in the body, the
+   labelled facts (email, phone, fax) as a definition list, and the edit/delete actions in
+   a footer bar.
+
+   Must not drift: deletecustomeraddress() is defined in the footer script below and is
+   still called from the inline onclick on the delete button; the edit and add buttons keep
+   their onclick="location.href=..." with the same routes, and .edit-address-button,
+   .delete-address-button and .add-address-button stay on those buttons. Both widget zones
+   stay in place and in order. The duplicate li.name line was the only thing removed. *@
+
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Account").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-account-page");
+    NopHtml.AppendPageCssClassParts("html-address-list-page");
+}
+
+@section left
+{
+    @await Component.InvokeAsync(typeof(CustomerNavigationViewComponent), new { selectedTabId = CustomerNavigationEnum.Addresses })
+}
+
+<div class="page account-page address-list-page ms-account">
+    <div class="page-title ms-account__title">
+        <h1>@T("Account.MyAccount") - @T("Account.CustomerAddresses")</h1>
+    </div>
+    <div class="page-body ms-account__body">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CustomerAddressesTop, additionalData = Model })
+        @if (Model.Addresses.Count > 0)
+        {
+            <div class="address-list ms-address-grid">
+                @for (var i = 0; i < Model.Addresses.Count; i++)
+                {
+                    var address = Model.Addresses[i];
+                    <div class="section address-item ms-address-card">
+                        <h2 class="title ms-address-card__name">
+                            @address.FirstName @address.LastName
+                        </h2>
+                        <div class="info ms-address-card__lines">
+                            @if (address.CompanyEnabled && !string.IsNullOrEmpty(address.Company))
+                            {
+                                <p class="company ms-address-card__company">@address.Company</p>
+                            }
+                            @foreach (var item in address.AddressFields)
+                            {
+                                <p class="ms-address-card__line @item.Key.ToString().ToLower()">@item.Value</p>
+                            }
+                            @if (!string.IsNullOrEmpty(address.FormattedCustomAddressAttributes))
+                            {
+                                <div class="custom-attributes-view ms-address-card__custom">
+                                    @Html.Raw(address.FormattedCustomAddressAttributes)
+                                </div>
+                            }
+                        </div>
+                        <dl class="ms-address-card__facts">
+                            <div class="ms-address-card__fact">
+                                <dt>@T("Address.Fields.Email"):</dt>
+                                <dd class="email">@address.Email</dd>
+                            </div>
+                            @if (address.PhoneEnabled)
+                            {
+                                <div class="ms-address-card__fact">
+                                    <dt>@T("Address.Fields.PhoneNumber"):</dt>
+                                    <dd class="phone">@address.PhoneNumber</dd>
+                                </div>
+                            }
+                            @if (address.FaxEnabled)
+                            {
+                                <div class="ms-address-card__fact">
+                                    <dt>@T("Address.Fields.FaxNumber"):</dt>
+                                    <dd class="fax">@address.FaxNumber</dd>
+                                </div>
+                            }
+                        </dl>
+                        <div class="buttons ms-address-card__actions">
+                            <button type="button" class="button-2 edit-address-button ms-address-card__button" onclick="location.href = '@(Url.RouteUrl(NopRouteNames.Standard.CUSTOMER_ADDRESS_EDIT, new { addressId = address.Id }))'">@T("Common.Edit")</button>
+
+                            <button type="button" class="button-2 delete-address-button ms-address-card__button ms-btn-danger" onclick="deletecustomeraddress(@(address.Id))">@T("Common.Delete")</button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <script asp-location="Footer">
+                function deletecustomeraddress(addressId) {
+                    if (confirm('@T("Common.AreYouSure")')) {
+                        var postData = {
+                            addressId: addressId
+                        };
+                        addAntiForgeryToken(postData);
+
+                        $.ajax({
+                            cache: false,
+                            type: "POST",
+                            url: "@Url.RouteUrl(NopRouteNames.Ajax.CUSTOMER_ADDRESS_DELETE)",
+                            data: postData,
+                            dataType: "json",
+                            success: function (data, textStatus, jqXHR) {
+                                location.href = data.redirect;
+                            },
+                            error: function (jqXHR, textStatus, errorThrown) {
+                                alert('Failed to delete');
+                            }
+                        });
+                    }
+                }
+            </script>
+        }
+        else
+        {
+            <div class="no-data ms-empty">
+                @T("Account.CustomerAddresses.NoAddresses")
+            </div>
+        }
+        <div class="add-button ms-address-grid__footer">
+            <button type="button" class="button-1 add-address-button ms-btn-secondary" onclick="location.href='@Url.RouteUrl(NopRouteNames.Standard.CUSTOMER_ADDRESS_ADD)'">@T("Common.AddNew")</button>
+        </div>
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CustomerAddressesBottom, additionalData = Model })
+    </div>
+</div>

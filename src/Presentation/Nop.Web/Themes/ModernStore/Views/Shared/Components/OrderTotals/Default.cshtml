@@ -1,0 +1,160 @@
+@* ModernStore override of Views/Shared/Components/OrderTotals/Default.cshtml —
+   same model, conditions and locale keys; the table is now a definition list. *@
+@model OrderTotalsModel
+<div class="total-info">
+    <dl class="cart-total ms-totals">
+        <div class="ms-totals__row order-subtotal">
+            <dt class="ms-totals__label">
+                <label>@T("ShoppingCart.Totals.SubTotal"):</label>
+            </dt>
+            <dd class="ms-totals__value">
+                <span class="value-summary">@Model.SubTotal</span>
+            </dd>
+        </div>
+        @if (!string.IsNullOrEmpty(Model.SubTotalDiscount))
+        {
+            <div class="ms-totals__row order-subtotal-discount">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.SubTotalDiscount"):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@Model.SubTotalDiscount</span>
+                </dd>
+            </div>
+        }
+        @if (!Model.HideShippingTotal)
+        {
+            <div class="ms-totals__row shipping-cost">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.Shipping"):</label>
+                    @if (Model.RequiresShipping && !string.IsNullOrEmpty(Model.SelectedShippingMethod))
+                    {
+                        <span class="selected-shipping-method">@T("ShoppingCart.Totals.Shipping.Method", Model.SelectedShippingMethod)</span>
+                    }
+                </dt>
+                <dd class="ms-totals__value">
+                    @if (Model.RequiresShipping)
+                    {
+                        if (!string.IsNullOrEmpty(Model.Shipping))
+                        {
+                            <span class="value-summary">@Model.Shipping</span>
+                        }
+                        else
+                        {
+                            <span>@T("ShoppingCart.Totals.CalculatedDuringCheckout")</span>
+                        }
+                    }
+                    else
+                    {
+                        <span>@T("ShoppingCart.Totals.Shipping.NotRequired")</span>
+                    }
+                </dd>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.PaymentMethodAdditionalFee))
+        {
+            <div class="ms-totals__row additional-fees">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.PaymentMethodAdditionalFee"):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@Model.PaymentMethodAdditionalFee</span>
+                </dd>
+            </div>
+        }
+        @if (Model.DisplayTaxRates && Model.TaxRates.Count > 0)
+        {
+            foreach (var taxRate in Model.TaxRates)
+            {
+                <div class="ms-totals__row tax-rate">
+                    <dt class="ms-totals__label">
+                        <label>@string.Format(T("ShoppingCart.Totals.TaxRateLine").Text, taxRate.Rate):</label>
+                    </dt>
+                    <dd class="ms-totals__value">
+                        <span>@taxRate.Value</span>
+                    </dd>
+                </div>
+            }
+        }
+        @if (Model.DisplayTax)
+        {
+            <div class="ms-totals__row tax-value">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.Tax"):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@Model.Tax</span>
+                </dd>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.OrderTotalDiscount))
+        {
+            <div class="ms-totals__row discount-total">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.OrderTotalDiscount"):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@Model.OrderTotalDiscount</span>
+                </dd>
+            </div>
+        }
+        @if (Model.GiftCards.Count > 0)
+        {
+            foreach (var gc in Model.GiftCards)
+            {
+                <div class="ms-totals__row giftcard-summary">
+                    <dt class="ms-totals__label">
+                        <label>@T("ShoppingCart.Totals.GiftCardInfo"):</label>
+                        <span>@T("ShoppingCart.Totals.GiftCardInfo.Code", gc.CouponCode)</span>
+                        <span class="giftcard-remaining">@string.Format(T("ShoppingCart.Totals.GiftCardInfo.Remaining").Text, gc.Remaining)</span>
+                    </dt>
+                    <dd class="ms-totals__value">
+                        <span class="value-summary">@gc.Amount</span>
+                        @if (Model.IsEditable)
+                        {
+                            //the name is bound by ShoppingCartController's FormValueRequired(StartsWith "removegiftcard-")
+                            <button type="submit" name="removegiftcard-@gc.Id" class="remove-gift-card-button" aria-label="@T("ShoppingCart.Remove")" title="@T("ShoppingCart.Remove")"></button>
+                        }
+                    </dd>
+                </div>
+            }
+        }
+        @if (Model.RedeemedRewardPoints > 0)
+        {
+            <div class="ms-totals__row reward-points">
+                <dt class="ms-totals__label">
+                    <label>@string.Format(T("ShoppingCart.Totals.RewardPoints").Text, Model.RedeemedRewardPoints):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@Model.RedeemedRewardPointsAmount</span>
+                </dd>
+            </div>
+        }
+        <div class="ms-totals__row ms-totals__row--total order-total">
+            <dt class="ms-totals__label">
+                <label>@T("ShoppingCart.Totals.OrderTotal"):</label>
+            </dt>
+            <dd class="ms-totals__value">
+                @if (!string.IsNullOrEmpty(Model.OrderTotal))
+                {
+                    <span class="value-summary"><strong>@Model.OrderTotal</strong></span>
+                }
+                else
+                {
+                    <span>@T("ShoppingCart.Totals.CalculatedDuringCheckout")</span>
+                }
+            </dd>
+        </div>
+        @if (Model.WillEarnRewardPoints > 0)
+        {
+            <div class="ms-totals__row earn-reward-points">
+                <dt class="ms-totals__label">
+                    <label>@T("ShoppingCart.Totals.RewardPoints.WillEarn"):</label>
+                </dt>
+                <dd class="ms-totals__value">
+                    <span class="value-summary">@string.Format(T("ShoppingCart.Totals.RewardPoints.WillEarn.Point").Text, Model.WillEarnRewardPoints)</span>
+                </dd>
+            </div>
+        }
+    </dl>
+</div>

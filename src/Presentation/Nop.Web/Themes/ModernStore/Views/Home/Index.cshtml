@@ -1,0 +1,425 @@
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Http
+@using Nop.Services.Catalog
+@using Nop.Services.Localization
+@using Nop.Services.Media
+@using Nop.Services.Seo
+@using Nop.Web.Factories
+@inject ILocalizationService localizationService
+@inject IStoreContext storeContext
+@inject ICategoryService categoryService
+@inject IProductService productService
+@inject IProductModelFactory productModelFactory
+@inject IPictureService pictureService
+@inject IUrlRecordService urlRecordService
+@inject IThemeContext themeContext
+
+@{
+    //Obsidian Atelier homepage. The commerce widget zones are kept for plugins;
+    //the hero itself is art-directed and no longer hosts the demo slider.
+    Layout = "_ColumnsOne";
+
+    var store = await storeContext.GetCurrentStoreAsync();
+    var storeId = store?.Id ?? 0;
+
+    var homepageTitle = await localizationService.GetLocalizedAsync(store, s => s.HomepageTitle);
+    if (!string.IsNullOrEmpty(homepageTitle))
+    {
+        NopHtml.AddTitleParts(homepageTitle);
+    }
+
+    var homepageDescription = await localizationService.GetLocalizedAsync(store, s => s.HomepageDescription);
+    if (!string.IsNullOrEmpty(homepageDescription))
+    {
+        NopHtml.AddMetaDescriptionParts(homepageDescription);
+    }
+
+    NopHtml.AppendPageCssClassParts("html-home-page");
+
+    var storeName = store?.Name?.Trim();
+    var usesThemeWordmark = string.IsNullOrEmpty(storeName) ||
+        storeName.Equals("Your store name", StringComparison.OrdinalIgnoreCase);
+    var brandName = usesThemeWordmark ? "Obsidian Atelier" : storeName;
+
+    // ── Per-store IDENTITY config (developer edits these three; no build) ──
+    // The flagship "feature" category the editorial homepage branches on. Matched by its
+    // URL slug (rename- and RTL-stable); featureCategoryName is only a fallback if the
+    // slug is blank. Set to null/"" to disable the editorial sections and fall back to the
+    // stock HomepageCategories/HomepageProducts widgets. This replaces the old buried
+    // literal compare on a category named "The Atelier", which failed silently on any
+    // store whose taxonomy differed.
+    const string featureCategorySlug = "the-atelier";
+    const string featureCategoryName = "The Atelier";
+
+    var themeName = await themeContext.GetWorkingThemeNameAsync();
+    var newProductsUrl = Url.RouteUrl(NopRouteNames.General.NEW_PRODUCTS);
+    var contactUrl = Url.RouteUrl(NopRouteNames.General.CONTACT_US);
+    var editorialImage = Url.Content($"~/Themes/{themeName}/Content/images/atelier/atelier-bench.jpg");
+    var heroImage = Url.Content($"~/Themes/{themeName}/Content/images/atelier/atelier-hero.jpg");
+
+    var rootCategories = (await categoryService.GetAllCategoriesAsync(string.Empty, storeId))
+        .Where(category => category.ParentCategoryId == 0)
+        .OrderBy(category => category.DisplayOrder)
+        .ToList();
+
+    // Resolve the feature category by slug first (stable across renames and Arabic display
+    // names); fall back to the configured display name only if no slug matched. Previously
+    // this compared the UNLOCALIZED category.Name to the literal "The Atelier" while the
+    // page rendered the localized name, so a renamed or RTL store silently lost its identity.
+    Category atelierRoot = null;
+    if (!string.IsNullOrWhiteSpace(featureCategorySlug))
+    {
+        foreach (var category in rootCategories)
+        {
+            var slug = await urlRecordService.GetSeNameAsync(category);
+            if (string.Equals(slug, featureCategorySlug, StringComparison.OrdinalIgnoreCase))
+            {
+                atelierRoot = category;
+                break;
+            }
+        }
+    }
+    if (atelierRoot == null && !string.IsNullOrWhiteSpace(featureCategoryName))
+    {
+        atelierRoot = rootCategories.FirstOrDefault(category =>
+            category.Name.Equals(featureCategoryName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    string atelierUrl = null;
+    if (atelierRoot != null)
+    {
+        var atelierSeName = await urlRecordService.GetSeNameAsync(atelierRoot);
+        atelierUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = atelierSeName });
+    }
+
+    var houseLinks = new List<(string Name, string Url)>();
+    foreach (var category in rootCategories.Where(c => atelierRoot == null || c.Id != atelierRoot.Id))
+    {
+        //Only departments with a live catalogue belong in secondary discovery;
+        //empty stock categories would send visitors to a dead end.
+        var stock = await productService.SearchProductsAsync(
+            pageSize: 1,
+            categoryIds: new List<int> { category.Id },
+            storeId: storeId,
+            visibleIndividuallyOnly: true);
+        if (stock.TotalCount == 0)
+            continue;
+
+        var seName = await urlRecordService.GetSeNameAsync(category);
+        houseLinks.Add((
+            await localizationService.GetLocalizedAsync(category, x => x.Name),
+            await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = seName })));
+        if (houseLinks.Count == 6)
+            break;
+    }
+
+    string PlainText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : Regex.Replace(value, "<[^>]+>", " ").Trim();
+    }
+
+    var departmentTiles = new List<(string Name, string Description, string Url, string ImageUrl, int Index)>();
+    if (atelierRoot != null)
+    {
+        var departments = (await categoryService.GetAllCategoriesByParentCategoryIdAsync(atelierRoot.Id))
+            .Where(category => category.Published)
+            .OrderBy(category => category.DisplayOrder)
+            .Take(5)
+            .ToList();
+
+        var position = 0;
+        foreach (var category in departments)
+        {
+            position++;
+            var seName = await urlRecordService.GetSeNameAsync(category);
+            departmentTiles.Add((
+                await localizationService.GetLocalizedAsync(category, x => x.Name),
+                PlainText(await localizationService.GetLocalizedAsync(category, x => x.Description)),
+                await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = seName }),
+                category.PictureId == 0
+                    ? null
+                    : await pictureService.GetPictureUrlAsync(category.PictureId, 900, false),
+                position));
+        }
+    }
+
+    var releaseProducts = new List<ProductOverviewModel>();
+    if (atelierRoot != null)
+    {
+        var candidates = await productService.SearchProductsAsync(
+            pageSize: 48,
+            categoryIds: new List<int> { atelierRoot.Id },
+            storeId: storeId,
+            visibleIndividuallyOnly: true,
+            orderBy: ProductSortingEnum.Position);
+
+        var available = candidates
+            .Where(product => productService.ProductIsAvailable(product))
+            .OrderBy(product => product.DisplayOrder)
+            .ThenBy(product => product.Id)
+            .ToList();
+        if (available.Count > 0)
+        {
+            releaseProducts = (await productModelFactory.PrepareProductOverviewModelsAsync(available, true, true, 640)).ToList();
+        }
+    }
+
+    var showcaseProducts = releaseProducts.Take(4).ToList();
+    var heroProduct = showcaseProducts.FirstOrDefault();
+    string heroProductUrl = null;
+    if (heroProduct != null)
+    {
+        heroProductUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = heroProduct.SeName });
+    }
+
+    var exploreUrl = atelierUrl ?? "#atelier-edit";
+    var exploreLabel = atelierRoot != null ? "Explore the atelier" : "Explore the collection";
+    var year = DateTime.UtcNow.Year;
+}
+<div class="page home-page">
+    <div class="page-body at-home">
+        @* HomepageTop is nop's first homepage extension point; the editorial re-author
+           had dropped it, so widgets/plugins that hook it rendered nowhere. Restored at
+           the core position (above the hero). BestSellers/HomepageText are intentionally
+           replaced by the art-directed sections below (see ENGINEERING-LOG.md). *@
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageTop })
+        <section class="at-hero" aria-labelledby="at-hero-title">
+            <div class="at-hero__copy">
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Maison release · @year</p>
+                <h1 class="at-hero__title" id="at-hero-title">
+                    Objects of
+                    <em>quiet distinction.</em>
+                </h1>
+                <p class="at-hero__lede">
+                    The atelier edit — timepieces, leather, optics, sound and objects chosen
+                    for material honesty, lasting utility and the quiet confidence of things
+                    made well.
+                </p>
+                <div class="at-hero__actions">
+                    <a href="@exploreUrl" class="button-1 at-btn">@exploreLabel</a>
+                    <a href="@newProductsUrl" class="button-2 at-btn at-btn--ghost">New arrivals</a>
+                </div>
+                <ul class="at-hero__meta" aria-label="Atelier services">
+                    <li>@(departmentTiles.Count > 0 ? $"{departmentTiles.Count} curated departments" : "Curated departments")</li>
+                    <li>Secure checkout</li>
+                    <li><a href="@contactUrl">Client care</a></li>
+                </ul>
+            </div>
+            <figure class="at-hero__media">
+                <img class="at-hero__image" src="@heroImage" alt="A skeleton chronograph from the atelier resting on dark stone" width="1408" height="768" />
+                <span class="at-hero__edition" aria-hidden="true">Edition @year</span>
+                <figcaption class="at-hero__plate">
+                    @if (heroProduct != null)
+                    {
+                        <a class="at-hero__plate-link" href="@heroProductUrl">
+                            <span class="at-hero__plate-kicker">The release · No. 01</span>
+                            <span class="at-hero__plate-name">@heroProduct.Name</span>
+                            <span class="at-hero__plate-meta">
+                                @if (!string.IsNullOrEmpty(heroProduct.ProductPrice.Price))
+                                {
+                                    <span class="at-hero__plate-price">@heroProduct.ProductPrice.Price</span>
+                                }
+                                <span class="at-hero__plate-arrow" aria-hidden="true">→</span>
+                            </span>
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="at-hero__plate-kicker">@brandName</span>
+                        <span class="at-hero__plate-name">The maison release</span>
+                    }
+                </figcaption>
+            </figure>
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeCategories })
+
+        @if (departmentTiles.Count > 0)
+        {
+            <section class="at-departments at-section" aria-labelledby="at-departments-title">
+                <header class="at-section__head">
+                    <div>
+                        <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Department archive · I</p>
+                        <h2 class="at-section__title" id="at-departments-title">Five disciplines, <em>one atelier.</em></h2>
+                    </div>
+                    <a class="at-section__link" href="@atelierUrl">
+                        Browse the atelier <span aria-hidden="true">→</span>
+                    </a>
+                </header>
+                <div class="at-department-mosaic">
+                    @foreach (var tile in departmentTiles)
+                    {
+                        <a class="at-tile at-tile--@tile.Index" href="@tile.Url">
+                            <span class="at-tile__media" aria-hidden="true">
+                                @if (!string.IsNullOrEmpty(tile.ImageUrl))
+                                {
+                                    <img src="@tile.ImageUrl" alt="" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span class="at-tile__placeholder"></span>
+                                }
+                            </span>
+                            <span class="at-tile__scrim" aria-hidden="true"></span>
+                            <span class="at-tile__body">
+                                <span class="at-tile__index">@tile.Index.ToString("00")</span>
+                                <span class="at-tile__name">@tile.Name</span>
+                                @if (!string.IsNullOrEmpty(tile.Description))
+                                {
+                                    <span class="at-tile__note">@tile.Description</span>
+                                }
+                                <span class="at-tile__cta">Explore <span aria-hidden="true">→</span></span>
+                            </span>
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+        else
+        {
+            @await Component.InvokeAsync(typeof(HomepageCategoriesViewComponent))
+        }
+
+        @await Component.InvokeAsync(typeof(FilterLevelValueSearchViewComponent))
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeProducts })
+
+        @if (showcaseProducts.Count > 0)
+        {
+            <section id="atelier-edit" class="at-edit at-section" aria-labelledby="at-edit-title">
+                <header class="at-section__head">
+                    <div>
+                        <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> The edit · No. 01</p>
+                        <h2 class="at-section__title" id="at-edit-title">The current <em>release.</em></h2>
+                    </div>
+                    <a class="at-section__link" href="@exploreUrl">
+                        View the full collection <span aria-hidden="true">→</span>
+                    </a>
+                </header>
+                <p class="at-edit__lede">
+                    A short edit from the atelier floor — pieces chosen to sit together,
+                    each with the material facts and the maker's mark.
+                </p>
+                <div class="at-edit__grid">
+                    @foreach (var item in showcaseProducts)
+                    {
+                        <div class="item-box">
+                            @await Html.PartialAsync("_ProductBox", item)
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+        else
+        {
+            <div id="atelier-edit" class="at-anchor">
+                @await Component.InvokeAsync(typeof(HomepageProductsViewComponent))
+            </div>
+        }
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeBestSellers })
+
+        <section class="at-editorial" aria-labelledby="at-editorial-title">
+            <figure class="at-editorial__media">
+                <img src="@editorialImage" alt="A watchmaker working at an atelier bench" loading="lazy" />
+                <figcaption>
+                    <span>Atelier note no. 01</span>
+                    <span>Materials &amp; making</span>
+                </figcaption>
+            </figure>
+            <div class="at-editorial__copy">
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Ethos &amp; provenance</p>
+                <h2 id="at-editorial-title">Materials of <em>consequence.</em></h2>
+                <p>
+                    We favour objects that age with grace: honest metals, reassuring weight,
+                    repairable construction and surfaces that reward touch. The edit is small
+                    by design — every piece has to earn its place in the room.
+                </p>
+                <ol class="at-editorial__index">
+                    <li><span>01</span> Considered selection</li>
+                    <li><span>02</span> Material honesty</li>
+                    <li><span>03</span> Built for daily use</li>
+                </ol>
+                <a href="@contactUrl" class="at-link-arrow">Speak with the atelier <span aria-hidden="true">→</span></a>
+            </div>
+        </section>
+
+        @if (houseLinks.Count > 0)
+        {
+            <section class="at-house at-section" aria-labelledby="at-house-title">
+                <div class="at-house__lead">
+                    <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Beyond the atelier</p>
+                    <h2 class="at-house__title" id="at-house-title">The wider <em>house.</em></h2>
+                    <p class="at-house__copy">
+                        The atelier is one room of the house. The other departments keep
+                        the same standard — considered goods, plainly described.
+                    </p>
+                    <a href="@newProductsUrl" class="at-link-arrow">New arrivals <span aria-hidden="true">→</span></a>
+                </div>
+                <ol class="at-house__index">
+                    @{ var housePosition = 0; }
+                    @foreach (var link in houseLinks)
+                    {
+                        housePosition++;
+                        <li>
+                            <a href="@link.Url">
+                                <span class="at-house__index-number">@housePosition.ToString("00")</span>
+                                <span class="at-house__index-name">@link.Name</span>
+                                <span class="at-house__index-arrow" aria-hidden="true">→</span>
+                            </a>
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+
+        <section class="at-assurances" aria-label="Atelier assurances">
+            <article class="at-assurance">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true" focusable="false">
+                    <path d="M6 10.5 16 5l10 5.5v11L16 27 6 21.5v-11Z" />
+                    <path d="m6 10.5 10 5.5 10-5.5M16 16v11" />
+                </svg>
+                <div>
+                    <h3>Curated provenance</h3>
+                    <p>Each department is edited by hand and kept deliberately finite.</p>
+                </div>
+            </article>
+            <article class="at-assurance">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true" focusable="false">
+                    <path d="M16 4 26 8v8c0 6-4.5 10.5-10 12-5.5-1.5-10-6-10-12V8l10-4Z" />
+                    <path d="m11.5 16 3 3 6-7" />
+                </svg>
+                <div>
+                    <h3>Secure settlement</h3>
+                    <p>Cart, account and checkout run on nopCommerce's verified flows.</p>
+                </div>
+            </article>
+            <article class="at-assurance">
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.1" aria-hidden="true" focusable="false">
+                    <path d="M7 9h18v14H7V9Z" />
+                    <path d="m7 10 9 7 9-7" />
+                </svg>
+                <div>
+                    <h3>Private client care</h3>
+                    <p><a href="@contactUrl">Write to the atelier</a> and a real person will answer.</p>
+                </div>
+            </article>
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeNews })
+
+        <section class="at-journal">
+            @await Component.InvokeAsync(typeof(HomepageNewsViewComponent))
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforePoll })
+        <section class="at-poll" aria-label="Client survey">
+            @await Component.InvokeAsync(typeof(HomepagePollsViewComponent))
+        </section>
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBottom })
+    </div>
+</div>

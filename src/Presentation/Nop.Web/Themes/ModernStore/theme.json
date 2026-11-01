@@ -1,7 +1,7 @@
-﻿{
+{
   "SystemName": "ModernStore",
-  "FriendlyName": "Modern store (Tailwind design system)",
+  "FriendlyName": "ModernStore (Obsidian Atelier)",
   "SupportRTL": true,
   "PreviewImageUrl": "~/Themes/ModernStore/preview.jpg",
-  "PreviewText": "A modernized storefront built on DefaultClean with a token-based Tailwind design system"
+  "PreviewText": "ModernStore for nopCommerce 4.90 — a hand-written, token-based CSS design system (no build step) with a dark-first Obsidian Atelier identity and full RTL support. Swap the identity layer to rebrand per store."
 }

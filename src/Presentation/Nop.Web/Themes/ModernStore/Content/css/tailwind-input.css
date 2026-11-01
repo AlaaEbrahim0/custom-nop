@@ -1,7 +1,0 @@
-/*
- * Tailwind CSS Input File for the ModernStore theme
- * Build: npm run build:css   (from src/Presentation/Nop.Web)
- */
-
-/* Tailwind utilities only (preflight disabled in config) */
-@tailwind utilities;

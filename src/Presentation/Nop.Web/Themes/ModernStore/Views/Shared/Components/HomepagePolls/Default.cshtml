@@ -1,0 +1,35 @@
+@model IList<PollModel>
+
+@* ModernStore override of Views/Shared/Components/HomepagePolls/Default.cshtml — this
+   is the poll band that actually renders on the homepage (Views/Home/Index.cshtml:73);
+   PollBlock is the left-column one (_ColumnsTwo.cshtml:49). Both were given the same
+   chrome so the two placements match.
+
+   Presentation only. The Model.Count > 0 guard, the home-page-polls / title classes and
+   the Polls.Title key are the base's, and Html.PartialAsync("_Poll", poll) stays the
+   per-poll call — every vote hook (#poll-block-{Id}, the pollanswers- radios, the vote
+   button) lives in that partial and must not be re-parented here. The head reuses the
+   theme's existing ms-sec / ms-sec-head / ms-sec-title section chrome
+   (design-system.css:2049-2082), so no new hooks are introduced.
+
+   One thing to watch on the CSS side: styles.css:1674 has
+   .home-page-polls li { display: inline-block; margin: 10px }, which lays each poll
+   ANSWER <li> out inline. That is what stops the radio rows from being full-width
+   targets, so it needs overriding here (or on ms-poll__option) rather than in the
+   markup.*@
+@if (Model.Count > 0)
+{
+    <section class="home-page-polls ms-sec">
+        <header class="ms-sec-head">
+            <h2 class="title ms-sec-title">
+                @T("Polls.Title")
+            </h2>
+        </header>
+        <div class="ms-sec-body">
+            @foreach (var poll in Model)
+            {
+                @await Html.PartialAsync("_Poll", poll)
+            }
+        </div>
+    </section>
+}

@@ -1,0 +1,116 @@
+@* Obsidian Atelier masthead: one slim utility strip and one compact row that
+   carries the wordmark, the department menu and the client actions. The search
+   field is no longer persistent; its trigger opens the overlay below, which
+   holds the original SearchBox component and therefore keeps the form id,
+   autocomplete configuration and widget zones intact.
+
+   The logo is delegated to the supported LogoViewComponent (see
+   Views/Shared/Components/Logo/Default.cshtml), which renders the admin-uploaded
+   logo when one is configured and the Atelier wordmark otherwise. *@
+
+@{
+    var searchUrl = Url.RouteUrl(NopRouteNames.General.SEARCH);
+
+    @* No locale key in this store names a display theme (checked against
+       LocaleStringResource), and the theme has no business writing to it, so the two
+       strings the control needs are supplied per culture here. *@
+    var usesRtlTheme = await Html.ShouldUseRtlThemeAsync();
+    var themeLabel = usesRtlTheme ? "المظهر" : "Theme";
+    var themeHint = usesRtlTheme ? "التبديل بين الوضع الفاتح والوضع الداكن" : "Switch between light and dark";
+}
+
+<header class="header">
+    <a class="skip-link" href="#main">@T("Header.SkipNavigation.Text")</a>
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderBefore })
+
+    <div class="header-top">
+        <div class="header-top__inner">
+            <div class="header-selectors-wrapper">
+                @await Component.InvokeAsync(typeof(TaxTypeSelectorViewComponent))
+                @await Component.InvokeAsync(typeof(CurrencySelectorViewComponent))
+                @await Component.InvokeAsync(typeof(LanguageSelectorViewComponent))
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderSelectors })
+            </div>
+
+            <p class="at-header__promise">
+                <span class="at-header__promise-mark" aria-hidden="true"></span>
+                Curated objects &amp; considered living
+            </p>
+
+            <div class="at-header__utility">
+                <a href="@Url.RouteUrl(NopRouteNames.General.CONTACT_US)" class="at-header__utility-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15a.75.75 0 0 1 .75.75v9a.75.75 0 0 1-.75.75h-15a.75.75 0 0 1-.75-.75v-9a.75.75 0 0 1 .75-.75Zm15 .75L12 13.5 4.5 7.5" />
+                    </svg>
+                    Client concierge
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderMiddle })
+
+    <div class="header-main">
+        <div class="header-main__inner">
+            <button type="button" class="header-burger" data-ms-drawer-toggle aria-controls="mobile-nav" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span class="sr-only">@T("Categories")</span>
+            </button>
+
+            <div class="header-logo">
+                @await Component.InvokeAsync(typeof(LogoViewComponent))
+            </div>
+
+            <div class="header-menu" id="mobile-nav" tabindex="-1">
+                @await Component.InvokeAsync(typeof(MainMenuViewComponent))
+            </div>
+
+            <div class="at-header-tools">
+                @* The theme control is a toggle button, not a link: the choice is
+                   visitor state held in localStorage, applied pre-paint by the script in
+                   Head.cshtml and kept in sync here by theme.js. *@
+                <button type="button" class="at-header-tool at-theme-toggle" data-ms-theme-toggle aria-pressed="false" aria-label="@themeLabel" title="@themeHint">
+                    <svg class="at-theme-toggle__icon at-theme-toggle__icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" d="M12 3v2.2M12 18.8V21M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M3 12h2.2M18.8 12H21M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+                        <circle cx="12" cy="12" r="3.6" />
+                    </svg>
+                    <svg class="at-theme-toggle__icon at-theme-toggle__icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+                    </svg>
+                </button>
+
+                <a href="@searchUrl" class="at-header-tool at-header-tool--search" data-ms-drawer-toggle aria-controls="atelier-search" aria-expanded="false" aria-label="@T("Search.SearchBox.Text.Label")">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+                    </svg>
+                </a>
+
+                <div class="header-actions">
+                    @await Component.InvokeAsync(typeof(HeaderLinksViewComponent))
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderAfter })
+
+    <div class="at-search search-box" id="atelier-search" role="dialog" aria-modal="true" aria-label="@T("Search.SearchBox.Text.Label")" tabindex="-1">
+        <div class="at-search__scrim" data-ms-drawer-close aria-hidden="true"></div>
+        <div class="at-search__panel">
+            <div class="at-search__head">
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Search the atelier</p>
+                <p class="at-search__hint">Esc to close</p>
+                <button type="button" class="at-search__close" data-ms-drawer-close>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false">
+                        <path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                    <span class="sr-only">@T("Common.Close")</span>
+                </button>
+            </div>
+            @await Component.InvokeAsync(typeof(SearchBoxViewComponent))
+        </div>
+    </div>
+</header>
+@await Component.InvokeAsync(typeof(FlyoutShoppingCartViewComponent))

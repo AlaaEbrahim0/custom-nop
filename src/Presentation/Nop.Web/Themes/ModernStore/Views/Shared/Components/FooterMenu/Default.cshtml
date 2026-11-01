@@ -1,0 +1,49 @@
+@model List<MenuModel>
+
+@*Theme override of Views/Shared/Components/FooterMenu/Default.cshtml.
+
+  Base emits the accordion header as `<h2 class="footer-menu__title footer-menu__toggle"
+  aria-haspopup aria-expanded>` — a heading with a click handler and no tabindex, so
+  the mobile footer menus cannot be opened from the keyboard at all. This puts a real
+  <button> inside the heading and moves the aria state onto it.
+
+  public.menu.js binds to `.footer-menu__toggle` and toggles the class on that
+  element's parentNode, so with the button now inside the h2 the active class lands on
+  the h2 — section 18's collapsed/expanded selectors use the sibling form accordingly.
+  The `footer-menu__title` class stays on the heading so existing typography rules
+  still match.*@
+<nav class="footer-navigation">
+    @foreach (var menu in Model)
+    {
+        <div class="footer-menu @menu.CssClass" role="none">
+            <h2 class="footer-menu__title" id="footer-menu-@menu.Id">
+                <button type="button"
+                        class="footer-menu__toggle"
+                        aria-expanded="false"
+                        aria-haspopup="menu"
+                        aria-controls="footer-menu-list-@menu.Id">
+                    @menu.Name
+                    <span class="footer-menu__chevron" aria-hidden="true"></span>
+                </button>
+            </h2>
+
+            <div class="footer-menu__list" id="footer-menu-list-@menu.Id" role="menu" aria-labelledby="footer-menu-@menu.Id">
+                @foreach (var menuItem in menu.Items)
+                {
+                    @* Partial names resolve against the directory of the view that
+                       renders them. Base sits in Views/Shared/Components/FooterMenu/,
+                       so its bare "_FooterItem.cshtml" worked; from this theme folder
+                       the same call searched only the theme's copy and threw
+                       "partial view not found". An absolute path keeps the single
+                       shared partial instead of forking a file we never change. *@
+                    @await Html.PartialAsync("~/Views/Shared/Components/FooterMenu/_FooterItem.cshtml", menuItem)
+                }
+            </div>
+        </div>
+    }
+</nav>
+
+<script src="~/js/public.menu.js" asp-location="Footer"></script>
+<script asp-location="Footer">
+    mainMenu.init('.footer-navigation .footer-menu__toggle', 'footer-menu--active');
+</script>

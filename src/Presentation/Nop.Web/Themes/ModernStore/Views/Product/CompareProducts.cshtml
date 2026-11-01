@@ -1,0 +1,166 @@
+@model CompareProductsModel
+
+@* ModernStore override of Views/Product/CompareProducts.cshtml — the brief asked for
+   Views/ShoppingCart/CompareProducts.cshtml, but the page is rendered by
+   ProductController.CompareProducts, so the override has to live under Views/Product/ to
+   resolve.
+
+   The base is a transposed <table> where the attribute name sits in the left column and
+   every product is one more column, with each cell given an inline width of 90/N%. Four
+   products already overflow a phone. It is now a grid of one card per product: the card
+   carries its own <dl> of facts, so nothing depends on a shared header row, no horizontal
+   scroll is possible at any width, and RTL needs no mirroring. The 90/N% columnWidth
+   calculation is gone with the inline widths it fed.
+
+   Must not drift: @model, Layout, the title and page-class parts, the uniqueGroupes /
+   uniqueGroupAttributes de-duplication, the clear-list link and each remove-button's
+   onclick="setLocation(...)" route, the IncludeShortDescriptionInCompareProducts /
+   IncludeFullDescriptionInCompareProducts conditions, the group.Id > 0 test that decides
+   whether a group heading is printed, and the colour-square markup below — its inline
+   background-color is data, not styling, so it stays.
+
+   Deliberate change: the base painted an empty cell (&nbsp;) for a specification a product
+   does not have; the card skips that fact instead of printing a blank value. *@
+
+@using Nop.Core.Domain.Catalog
+
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.CompareProducts").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-compare-products-page");
+}
+@{
+    var uniqueGroupes = new List<ProductSpecificationAttributeGroupModel>();
+    foreach (var group in Model.Products.SelectMany(p => p.ProductSpecificationModel.Groups))
+    {
+        if (!uniqueGroupes.Any(g => g.Id == group.Id))
+            uniqueGroupes.Add(group);
+    }
+
+    @* the base computed each group's de-duplicated attribute list inside the table loop;
+       it is hoisted here because Razor cannot see a C# local declared after markup begins,
+       and the list does not depend on the product anyway *@
+    var groupAttributes = new Dictionary<int, List<ProductSpecificationAttributeModel>>();
+    foreach (var group in uniqueGroupes)
+    {
+        var uniqueGroupAttributes = new List<ProductSpecificationAttributeModel>();
+        foreach (var attribute in Model.Products.SelectMany(p => p.ProductSpecificationModel.Groups.Where(g => g.Id == group.Id).SelectMany(g => g.Attributes)))
+        {
+            if (!uniqueGroupAttributes.Any(sa => sa.Id == attribute.Id))
+                uniqueGroupAttributes.Add(attribute);
+        }
+
+        groupAttributes[group.Id] = uniqueGroupAttributes;
+    }
+}
+<div class="page compare-products-page ms-page">
+    <div class="page-title ms-page-head">
+        <h1>@T("Products.Compare.Title")</h1>
+    </div>
+    <div class="page-body">
+        @if (Model.Products.Count > 0)
+        {
+            <a href="#" onclick="setLocation('@Url.RouteUrl(NopRouteNames.Standard.CLEAR_COMPARE_LIST)')" class="clear-list ms-compare__clear">@T("Products.Compare.Clear")</a>
+            <ul class="ms-compare-grid">
+                @foreach (var product in Model.Products)
+                {
+                    <li class="ms-compare-card">
+                        <div class="ms-compare-card__actions remove-product">
+                            <button type="button" class="button-2 remove-button" onclick="setLocation('@Url.RouteUrl(NopRouteNames.Standard.REMOVE_PRODUCT_FROM_COMPARE_LIST, new { productId = product.Id })')">@T("Common.Remove")</button>
+                        </div>
+                        @{
+                            var picture = product.PictureModels.FirstOrDefault();
+                        }
+                        <div class="ms-compare-card__media product-picture">
+                            <a class="picture" href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = product.SeName }))"><img alt="@picture?.AlternateText" src="@picture?.ImageUrl" title="@picture?.Title" /></a>
+                        </div>
+                        <h2 class="ms-compare-card__name product-name">
+                            <a href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = product.SeName }))">@product.Name</a>
+                        </h2>
+                        <dl class="ms-compare-card__facts">
+                            <div class="ms-compare-card__fact product-price price">
+                                <dt class="ms-compare-card__label">@T("Products.Compare.Price")</dt>
+                                <dd class="ms-compare-card__value">@product.ProductPrice.Price</dd>
+                            </div>
+                            @if (Model.IncludeShortDescriptionInCompareProducts)
+                            {
+                                <div class="ms-compare-card__fact short-description">
+                                    <dt class="ms-compare-card__label">@T("Products.Compare.ShortDescription")</dt>
+                                    <dd class="ms-compare-card__value">@Html.Raw(product.ShortDescription)</dd>
+                                </div>
+                            }
+                            @if (Model.IncludeFullDescriptionInCompareProducts)
+                            {
+                                <div class="ms-compare-card__fact full-description">
+                                    <dt class="ms-compare-card__label">@T("Products.Compare.FullDescription")</dt>
+                                    <dd class="ms-compare-card__value">@Html.Raw(product.FullDescription)</dd>
+                                </div>
+                            }
+                        </dl>
+                        @foreach (var group in uniqueGroupes)
+                        {
+                            if (group.Attributes.Count > 0)
+                            {
+                                <div class="ms-compare-card__group">
+                                    @if (group.Id > 0)
+                                    {
+                                        <p class="ms-compare-card__group-name specification-group">@group.Name</p>
+                                    }
+                                    <dl class="ms-compare-card__specs">
+                                        @foreach (var specificationAttribute in groupAttributes[group.Id])
+                                        {
+                                            var foundProductSpec = product.ProductSpecificationModel.Groups
+                                                .Where(g => g.Id == group.Id)
+                                                .SelectMany(g => g.Attributes)
+                                                .FirstOrDefault(sa => sa.Id == specificationAttribute.Id);
+
+                                            if (foundProductSpec == null)
+                                            {
+                                                continue;
+                                            }
+                                            <div class="ms-compare-card__spec specification">
+                                                <dt class="ms-compare-card__label">@specificationAttribute.Name</dt>
+                                                <dd class="ms-compare-card__value">
+                                                    @for (int i = 0; i < foundProductSpec.Values.Count; i++)
+                                                    {
+                                                        var value = foundProductSpec.Values[i];
+
+                                                        if (string.IsNullOrEmpty(value.ColorSquaresRgb))
+                                                        {
+                                                            @Html.Raw(value.ValueRaw)
+                                                            if (i != foundProductSpec.Values.Count - 1)
+                                                            {
+                                                                <text>,&nbsp;</text>
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="attribute-squares color-squares attribute-squares-padding">
+                                                                <span class="attribute-square-container" title="@Html.Raw(value.ValueRaw)">
+                                                                    <span class="attribute-square" style="background-color: @(value.ColorSquaresRgb);">&nbsp;</span>
+                                                                </span>
+                                                            </div>
+                                                        }
+                                                    }
+                                                </dd>
+                                            </div>
+                                        }
+                                    </dl>
+                                </div>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="no-data ms-compare-empty">
+                @T("Products.Compare.NoItems")
+            </div>
+        }
+    </div>
+</div>

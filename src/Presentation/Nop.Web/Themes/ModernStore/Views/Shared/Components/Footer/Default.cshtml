@@ -1,0 +1,108 @@
+@model FooterModel
+
+@using Nop.Core
+@using Nop.Core.Domain.Tax
+@using Nop.Core.Domain.Topics
+
+@inject IWorkContext workContext
+
+@* Obsidian Atelier footer override.
+
+   The base two-column footer is re-cut into an editorial dispatch band, a brand /
+   navigation shelf, and the legal lower bar. Every functional piece is retained:
+   FooterMenu, SocialButtons, NewsLetterBox, tax/shipping note, copyright,
+   "Powered by nopCommerce", StoreThemeSelector and the Footer widget zone. *@
+
+@{
+    var footerStoreName = Model.StoreName?.Trim();
+    var usesThemeWordmark = string.IsNullOrEmpty(footerStoreName) ||
+        footerStoreName.Equals("Your store name", StringComparison.OrdinalIgnoreCase);
+    var footerBrandPrimary = usesThemeWordmark ? "OBSIDIAN" : footerStoreName.ToUpperInvariant();
+    // "ATELIER" is the THEME default wordmark's second line, not a tagline to bolt onto an
+    // unrelated store name. When a store sets its own name, show only that name (the old
+    // `? "ATELIER" : "ATELIER"` was a no-op that leaked the previous client's brand).
+    var footerBrandSecondary = usesThemeWordmark ? "ATELIER" : null;
+}
+<footer class="footer at-footer">
+    <section class="at-footer__dispatch">
+        <div class="at-footer__dispatch-copy">
+            <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> Private client dispatch</p>
+            <h2>Reserved objects &amp; atelier notes.</h2>
+            <p>Occasional correspondence on new arrivals, material studies and the stories behind the edit. No noise.</p>
+        </div>
+        <div class="at-footer__dispatch-form">
+            @await Component.InvokeAsync(typeof(NewsLetterBoxViewComponent))
+        </div>
+    </section>
+
+    <section class="footer-upper at-footer__upper">
+        <div class="at-footer__brand">
+            <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)" class="at-brand at-brand--footer" aria-label="@(usesThemeWordmark ? "Obsidian Atelier" : footerStoreName)">
+                <svg class="at-brand__mark" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M20 2.5 37.5 20 20 37.5 2.5 20 20 2.5Z" stroke="currentColor" stroke-width="1.1" />
+                    <path d="M20 7.5 32.5 20 20 32.5 7.5 20 20 7.5Z" stroke="currentColor" stroke-width=".7" opacity=".65" />
+                    <path d="M20 12.5 27.5 20 20 27.5 12.5 20 20 12.5Z" fill="currentColor" opacity=".22" />
+                </svg>
+                <span class="at-brand__words">
+                    <span class="at-brand__primary">@footerBrandPrimary</span>
+                    @if (!string.IsNullOrEmpty(footerBrandSecondary))
+                    {
+                        <span class="at-brand__secondary">@footerBrandSecondary</span>
+                    }
+                </span>
+            </a>
+            <p class="at-footer__blurb">
+                A considered edit of objects for modern living: technology, dress,
+                reading and small pleasures, chosen for material honesty and daily use.
+            </p>
+            <div class="footer-block follow-us at-footer__social">
+                <div class="social">
+                    <h2 class="title">@T("Footer.FollowUs")</h2>
+                    @await Component.InvokeAsync(typeof(SocialButtonsViewComponent))
+                </div>
+            </div>
+        </div>
+
+        @await Component.InvokeAsync(typeof(FooterMenuViewComponent))
+    </section>
+
+    <section class="footer-lower at-footer__lower">
+        <div class="footer-info at-footer__legal">
+            @* The store still carries the nopCommerce placeholder name; the wordmark
+               already falls back to the theme brand, so the legal line follows it
+               instead of printing "Your store name". *@
+            <span class="footer-disclaimer">@T("Content.CopyrightNotice", DateTime.Now.Year, usesThemeWordmark ? "Obsidian Atelier" : footerStoreName)</span>
+            @if (Model.DisplayTaxShippingInfoFooter)
+            {
+                var inclTax = await workContext.GetTaxDisplayTypeAsync() == TaxDisplayType.IncludingTax;
+                <span class="footer-tax-shipping">
+                    @T(inclTax ? "Footer.TaxShipping.InclTax" : "Footer.TaxShipping.ExclTax", await NopUrl.RouteTopicUrlAsync("shippinginfo"))
+                </span>
+            }
+        </div>
+        @if (!Model.HidePoweredByNopCommerce)
+        {
+            <div class="footer-powered-by">
+                Powered by <a href="@(OfficialSite.Main)" target="_blank" @(Model.IsHomePage ? string.Empty : "rel=nofollow")>nopCommerce</a>
+            </div>
+        }
+        @await Component.InvokeAsync(typeof(StoreThemeSelectorViewComponent))
+    </section>
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.Footer, additionalData = Model })
+</footer>
+
+<script asp-location="Footer">
+    $(function () {
+        // Collapse footer blocks into a tap-to-open list on small screens. Scoped to
+        // .footer because the original document-wide $('.block .title') also matched the
+        // account-navigation and catalog-filter drawer headings (both are .block .title
+        // living in _Header/_ColumnsTwo), so a slide animation fought theme.js's drawer
+        // state and the <h2> had no keyboard affordance. Breakpoint aligned to the
+        // theme's 1024px (was the unrelated core 1001px).
+        $('.footer .block > .title').on('click', function () {
+            if (window.innerWidth < 1024) {
+                $(this).siblings('.listbox').slideToggle('slow');
+            }
+        });
+    });
+</script>

@@ -1,0 +1,108 @@
+@using Nop.Services
+@model CustomerOrderListModel
+
+@* ModernStore override of Views/Order/CustomerOrders.cshtml — this is the order history
+   surface named "Orders" in the theme brief. CustomerController has no Orders action, so a
+   view under Views/Customer/ would never resolve; the base is rendered by Order.CustomerOrders.
+
+   Each order is one card: order number as the heading, status/date/total as a definition list
+   with the status wearing a chip, and the return/details actions in a footer bar.
+
+   Must not drift: the #periodSelector select and its footer change handler build the URL from
+   the route below, so the id and the .order-filters classes stay; the return and details buttons
+   keep their onclick="setLocation('...')" with the same routes and their .return-items-button /
+   .order-details-button classes; the post form, Html.PagerAsync(Model.PagerModel), .no-data and
+   both widget zones are the base view's. *@
+
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Account").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-account-page");
+    NopHtml.AppendPageCssClassParts("html-order-list-page");
+}
+
+@section left
+{
+    @await Component.InvokeAsync(typeof(CustomerNavigationViewComponent), new { selectedTabId = CustomerNavigationEnum.Orders })
+}
+
+<div class="page account-page order-list-page ms-account">
+    <div class="page-title ms-account__title">
+        <h1>@T("Account.MyAccount") - @T("Account.CustomerOrders")</h1>
+    </div>
+    <div class="page-body ms-account__body">
+        <form asp-route="@NopRouteNames.General.CUSTOMER_ORDERS" method="post" class="ms-order-filter-form">
+            <div class="order-filters ms-order-filter">
+                <div class="order-filters__row ms-order-filter__row">
+                    <label class="order-filters__label ms-order-filter__label" for="periodSelector">@T("Account.CustomerOrders.Period")</label>
+                    <select class="order-filters__input ms-order-filter__select" id="periodSelector" asp-items="@Model.AvailableLimits"></select>
+                </div>
+            </div>
+        </form>
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CustomerOrdersTop, additionalData = Model })
+        @if (Model.Orders.Count > 0)
+        {
+            <div class="order-list ms-order-grid">
+                @foreach (var order in Model.Orders)
+                {
+                    <article class="section order-item ms-order-card">
+                        <div class="ms-order-card__head">
+                            <h2 class="title ms-order-card__number">
+                                @T("Account.CustomerOrders.OrderNumber"): @order.CustomOrderNumber
+                            </h2>
+                        </div>
+                        <dl class="ms-order-card__facts">
+                            <div class="ms-order-card__fact">
+                                <dt>@T("Account.CustomerOrders.OrderStatus")</dt>
+                                <dd>
+                                    <span class="order-status ms-status ms-status--@order.OrderStatusEnum.ToString().ToLowerInvariant() @order.OrderStatusEnum.ToString().ToLowerInvariant()">@order.OrderStatus</span>
+                                </dd>
+                            </div>
+                            <div class="ms-order-card__fact">
+                                <dt>@T("Account.CustomerOrders.OrderDate")</dt>
+                                <dd><span class="order-date">@order.CreatedOn.ToString()</span></dd>
+                            </div>
+                            <div class="ms-order-card__fact ms-order-card__fact--total">
+                                <dt>@T("Account.CustomerOrders.OrderTotal")</dt>
+                                <dd><span class="order-total">@order.OrderTotal</span></dd>
+                            </div>
+                        </dl>
+                        <div class="buttons ms-order-card__actions">
+                            @if (order.IsReturnRequestAllowed)
+                            {
+                                <button type="button" class="button-2 return-items-button ms-order-card__button" onclick="setLocation('@Url.RouteUrl(NopRouteNames.Standard.RETURN_REQUEST, new { orderId = order.Id })')">@T("Account.CustomerOrders.ReturnItems")</button>
+                            }
+                            <button type="button" class="button-2 order-details-button ms-order-card__button ms-btn-primary" onclick="setLocation('@Url.RouteUrl(NopRouteNames.Standard.ORDER_DETAILS, new { orderId = order.Id })')">@T("Account.CustomerOrders.OrderDetails")</button>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            var pager = await Html.PagerAsync(Model.PagerModel);
+            if (!string.IsNullOrEmpty(await pager.RenderHtmlContentAsync()))
+            {
+                <div class="pager">
+                    @pager
+                </div>
+            }
+        }
+        else
+        {
+            <div class="no-data ms-empty">
+                @T("Account.CustomerOrders.NoOrders")
+            </div>
+        }
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CustomerOrdersBottom, additionalData = Model })
+    </div>
+</div>
+
+<script asp-location="Footer">
+    $(function() {
+        $('#periodSelector').on('change', function() {
+            window.location.href = '@Url.RouteUrl(NopRouteNames.General.CUSTOMER_ORDERS, new { limit = (object)null })/' + $(this).val();
+        });
+    })
+</script>

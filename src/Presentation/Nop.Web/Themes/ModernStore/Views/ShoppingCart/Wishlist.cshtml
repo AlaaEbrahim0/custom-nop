@@ -1,0 +1,364 @@
+@model WishlistModel
+
+@* ModernStore override of Views/ShoppingCart/Wishlist.cshtml.
+
+   The page is an editorial register: a masthead with a live count, the list
+   switcher as quiet tabs, one full-width row per object (image, description and
+   a pricing/action rail) and a designed empty state with real exits.
+
+   Must not drift: @model, Layout, the title and page-class parts, #wishlist-form with
+   its asp-route / asp-route-list, the bound names addtocart, removefromcart,
+   itemquantity{Id}, moveToCustomWishlist{Id}, updatecart, addtocartbutton,
+   deletewishlistbutton and the hidden listId input; the ids addtocart-{Id},
+   removefromcart{Id}, #updatecart; the onclick handlers on the remove button, the
+   wishlist switcher buttons and deleteCustomWishlist(); the inline
+   onchange="AjaxCart.moveToCustomWishlist(...)" on the move select; the footer
+   deleteCustomWishlist script; _AddWishlistModal; WishlistTop / WishlistBottom in
+   base order; and the visually hidden #add-to-cart-caption the add-to-cart
+   checkboxes are named by. *@
+
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Media
+@using Nop.Core.Domain.Tax
+@using Nop.Services.Customers
+
+@inject IWebHelper webHelper
+@inject IWorkContext workContext
+@inject MediaSettings mediaSettings
+@inject ICustomerService customerService
+
+@{
+    Layout = "_ColumnsOne";
+
+    //title
+    NopHtml.AddTitleParts(T("PageTitle.Wishlist").Text);
+    //page class
+    NopHtml.AppendPageCssClassParts("html-wishlist-page");
+}
+
+@{
+    var urlDeleteWishlist = Url.RouteUrl(NopRouteNames.Ajax.DELETE_CUSTOM_WISHLIST, new { wishlistId = Model.ListId });
+    var currentCustomer = await workContext.GetCurrentCustomerAsync();
+    var isGuest = await customerService.IsGuestAsync(currentCustomer);
+    var continueUrl = Url.RouteUrl(NopRouteNames.General.HOMEPAGE);
+    var signInUrl = Url.RouteUrl(NopRouteNames.General.LOGIN, new { returnUrl = webHelper.GetRawUrl(Context.Request) });
+    var position = 0;
+}
+
+<div class="page wishlist-page ms-page at-wishlist">
+    <header class="page-title at-wishlist__masthead">
+        <div class="at-wishlist__heading">
+            <p class="at-eyebrow">
+                <span class="at-eyebrow__rule" aria-hidden="true"></span>
+                @(Model.IsEditable ? "The private list" : "A shared selection")
+            </p>
+            <h1>
+                @if (Model.IsEditable)
+                {
+                    @T("Wishlist")
+                }
+                else
+                {
+                    @string.Format(T("Wishlist.WishlistOf").Text, Model.CustomerFullname)
+                }
+                @if (!string.IsNullOrEmpty(Model.CustomWishlistName))
+                {
+                    <text> - </text>@Model.CustomWishlistName
+                }
+            </h1>
+            <p class="at-wishlist__intro">
+                @(Model.IsEditable
+                    ? "Objects set aside while you consider them. Prices, quantities and notes stay here until you are ready."
+                    : "A selection shared from the atelier archive. Add an object to your own cart, or start a list of your own.")
+            </p>
+        </div>
+        <div class="at-wishlist__summary">
+            <span class="at-wishlist__count">@Model.Items.Count.ToString("00")</span>
+            <span class="at-wishlist__summary-label">@T("Wishlist")</span>
+        </div>
+    </header>
+
+    <div class="page-body at-wishlist__body">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.WishlistTop, additionalData = Model })
+
+        @if (Model.IsEditable && Model.AllowMultipleWishlist)
+        {
+            <div class="at-wishlist__lists">
+                <div class="button-row ms-wishlist-switcher">
+                    <button type="button" class="button-2 custom-wishlist-button add-new at-wishlist__list-tab at-wishlist__list-tab--new" onclick="showAddWishlistModal(0)">
+                        <span aria-hidden="true">+</span> @T("Wishlist.AddCustomWishlist")
+                    </button>
+                    @if (Model.CustomWishlistItems.Any())
+                    {
+                        <button type="button" class="button-2 custom-wishlist-button at-wishlist__list-tab@(Model.ListId == 0 ? " is-current" : "")" aria-current="@(Model.ListId == 0 ? "true" : null)" onclick="setLocation('@(Url.RouteUrl(NopRouteNames.General.WISHLIST))')">
+                            @T("Wishlist.Default")
+                        </button>
+                    }
+                    @foreach (var customWishlist in Model.CustomWishlistItems)
+                    {
+                        <button type="button" class="button-2 custom-wishlist-button at-wishlist__list-tab@(Model.ListId == customWishlist.Id ? " is-current" : "")" aria-current="@(Model.ListId == customWishlist.Id ? "true" : null)" onclick="setLocation('@(Url.RouteUrl(NopRouteNames.General.WISHLIST, new { list = customWishlist.Id }))')">@customWishlist.Name</button>
+                    }
+                </div>
+
+                @await Html.PartialAsync("_AddWishlistModal", 0)
+            </div>
+        }
+
+        @if (Model.Items.Count > 0)
+        {
+            <div class="wishlist-content at-wishlist__content">
+                @if (Model.Warnings.Count > 0)
+                {
+                    <div class="message-error">
+                        <ul>
+                            @foreach (var warning in Model.Warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                <form asp-route="@NopRouteNames.General.WISHLIST" method="post" id="wishlist-form" asp-route-list="@Model.ListId">
+                    @if (Model.DisplayAddToCart)
+                    {
+                        @*the caption the checkboxes are labelled by: was <th id="add-to-cart-caption">*@
+                        <p class="sr-only ms-wishlist-caption" id="add-to-cart-caption">@T("ShoppingCart.AddToCart")</p>
+                    }
+                    <ul class="ms-wishlist-grid at-wishlist__list">
+                        @foreach (var item in Model.Items)
+                        {
+                            position++;
+                            <li class="ms-wishlist-card at-wishlist__card">
+                                @if (Model.ShowProductImages)
+                                {
+                                    <div class="ms-wishlist-card__media at-wishlist__media product-picture">
+                                        <a href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName }))">
+                                            <img alt="@item.Picture.AlternateText" src="@item.Picture.ImageUrl" title="@item.Picture.Title" width="@mediaSettings.CartThumbPictureSize" loading="lazy" />
+                                        </a>
+                                    </div>
+                                }
+                                <div class="ms-wishlist-card__body at-wishlist__card-body product">
+                                    <span class="at-wishlist__index" aria-hidden="true">@position.ToString("00")</span>
+                                    @if (Model.ShowSku)
+                                    {
+                                        <p class="ms-wishlist-card__sku sku">
+                                            <span class="sr-only">@T("ShoppingCart.SKU")</span>
+                                            <span class="sku-number">@item.Sku</span>
+                                        </p>
+                                    }
+                                    <h2 class="ms-wishlist-card__name">
+                                        <a href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName }))" class="product-name">@item.ProductName</a>
+                                    </h2>
+                                    @if (!string.IsNullOrEmpty(item.AttributeInfo))
+                                    {
+                                        <div class="attributes">
+                                            @Html.Raw(item.AttributeInfo)
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.RecurringInfo))
+                                    {
+                                        <div class="recurring-info">
+                                            @Html.Raw(item.RecurringInfo)
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.RentalInfo))
+                                    {
+                                        <div class="rental-info">
+                                            @Html.Raw(item.RentalInfo)
+                                        </div>
+                                    }
+                                    @if (Model.IsEditable && item.AllowItemEditing)
+                                    {
+                                        var editCartItemUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName }, webHelper.GetCurrentRequestProtocol());
+                                        editCartItemUrl = webHelper.ModifyQueryString(editCartItemUrl, "updatecartitemid", item.Id.ToString());
+                                        editCartItemUrl = webHelper.ModifyQueryString(editCartItemUrl, "customwishlistid", Model.ListId?.ToString() ?? "null");
+                                        <div class="edit-item">
+                                            <a href="@editCartItemUrl" class="at-wishlist__edit">@T("Common.Edit")</a>
+                                        </div>
+                                    }
+                                    @if (item.Warnings.Count > 0)
+                                    {
+                                        <div class="message-error">
+                                            <ul>
+                                                @foreach (var warning in item.Warnings)
+                                                {
+                                                    <li>@Html.Raw(warning)</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                    @if (Model.IsEditable && Model.AllowMultipleWishlist && Model.CustomWishlistItems.Any())
+                                    {
+                                        <div class="custom-wishlist ms-wishlist-card__move">
+                                            <label class="ms-wishlist-card__move-label" for="moveToCustomWishlist@(item.Id)">@T("Wishlist.MoveToCustomWishlist"):</label>
+                                            <select id="moveToCustomWishlist@(item.Id)"
+                                                    name="moveToCustomWishlist@(item.Id)"
+                                                    class="custom-wishlist-dropdown ms-wishlist-card__move-select"
+                                                    onchange="AjaxCart.moveToCustomWishlist('@Url.RouteUrl(NopRouteNames.Ajax.MOVE_CART_TO_CUSTOM_WISHLIST)', @item.Id, this.value);return false;">
+                                                <option value="0">@T("Wishlist.Default")</option>
+                                                @foreach (var customWishlist in Model.CustomWishlistItems)
+                                                {
+                                                    var isCurrentWishlist = Model.ListId == customWishlist.Id;
+                                                    <option value="@customWishlist.Id" selected="@isCurrentWishlist">@customWishlist.Name</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    }
+
+                                    <dl class="ms-wishlist-card__facts at-wishlist__facts">
+                                        <div class="ms-wishlist-card__fact unit-price">
+                                            <dt>@T("ShoppingCart.UnitPrice")</dt>
+                                            <dd><span class="product-unit-price">@item.UnitPrice</span></dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                                <div class="at-wishlist__side">
+                                    <div class="ms-wishlist-card__quantity quantity">
+                                        <label class="ms-wishlist-card__fact-label" for="itemquantity@(item.Id)">@T("ShoppingCart.Quantity")</label>
+                                        @if (Model.IsEditable)
+                                        {
+                                            if (item.AllowedQuantities.Count > 0)
+                                            {
+                                                <select name="itemquantity@(item.Id)" id="itemquantity@(item.Id)" class="qty-dropdown">
+                                                    @foreach (var qty in item.AllowedQuantities)
+                                                    {
+                                                        <option selected="@qty.Selected" value="@qty.Value">@qty.Value</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input name="itemquantity@(item.Id)" id="itemquantity@(item.Id)" type="text" value="@(item.Quantity)" class="qty-input" aria-label="@T("ShoppingCart.Quantity")" />
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="product-quantity">@item.Quantity</span>
+                                        }
+                                    </div>
+                                    <div class="ms-wishlist-card__total subtotal">
+                                        <p class="ms-wishlist-card__fact-label">@T("ShoppingCart.ItemTotal")</p>
+                                        <p class="ms-wishlist-card__amount"><span class="product-subtotal">@item.SubTotal</span></p>
+                                        @if (!string.IsNullOrEmpty(item.Discount))
+                                        {
+                                            <div class="discount">
+                                                @T("ShoppingCart.ItemYouSave", item.Discount)
+                                            </div>
+                                            if (item.MaximumDiscountedQty.HasValue)
+                                            {
+                                                <div class="discount-additional-info">
+                                                    @T("ShoppingCart.MaximumDiscountedQty", item.MaximumDiscountedQty.Value)
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                    @if (Model.DisplayAddToCart)
+                                    {
+                                        <div class="ms-wishlist-card__add add-to-cart">
+                                            <input type="checkbox" id="addtocart-@item.Id" name="addtocart" value="@(item.Id)" aria-labelledby="add-to-cart-caption" class="at-wishlist__check" />
+                                            <label for="addtocart-@item.Id" class="at-wishlist__check-label">@T("ShoppingCart.AddToCart")</label>
+                                        </div>
+                                    }
+                                    @if (Model.IsEditable)
+                                    {
+                                        <div class="ms-wishlist-card__remove remove-from-cart">
+                                            <input type="checkbox" name="removefromcart" id="removefromcart@(item.Id)" value="@(item.Id)" aria-label="@T("ShoppingCart.Remove")" class="at-wishlist__remove-check" />
+                                            <button type="button" name="updatecart" class="remove-btn at-wishlist__remove" onclick="$('#removefromcart@(item.Id)').attr('checked', true); $('#updatecart').trigger('click');" aria-labelledby="removefromcart@(item.Id)">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9.5 7V5.5h5V7m-8 0 .8 12.1A1.5 1.5 0 0 0 8.8 20.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+                                                </svg>
+                                                <span class="sr-only">@T("ShoppingCart.Remove")</span>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                    @if (Model.Items.Count > 0 && Model.DisplayTaxShippingInfo)
+                    {
+                        var inclTax = await workContext.GetTaxDisplayTypeAsync() == TaxDisplayType.IncludingTax;
+                        //tax info is already included in the price (incl/excl tax). that's why we display only shipping info here
+                        //of course, you can modify appropriate locales to include VAT info there
+                        <div class="tax-shipping-info at-wishlist__tax">
+                            @T(inclTax ? "Wishlist.TaxShipping.InclTax" : "Wishlist.TaxShipping.ExclTax", await NopUrl.RouteTopicUrlAsync("shippinginfo"))
+                        </div>
+                    }
+                    <div class="buttons ms-wishlist-actions at-wishlist__actions">
+                        @if (Model.IsEditable)
+                        {
+                            <button type="submit" name="updatecart" id="updatecart" class="button-2 update-wishlist-button at-btn at-btn--ghost">@T("Wishlist.UpdateCart")</button>
+                        }
+                        @if (Model.DisplayAddToCart)
+                        {
+                            <button type="submit" name="addtocartbutton" class="button-2 wishlist-add-to-cart-button at-btn">@T("ShoppingCart.AddToCart")</button>
+                        }
+                        @if (Model.IsEditable && Model.EmailWishlistEnabled)
+                        {
+                            <button type="button" class="button-2 email-a-friend-wishlist-button at-btn at-btn--ghost" onclick="setLocation('@Url.RouteUrl(NopRouteNames.Standard.EMAIL_WISHLIST, new { wishlistId = Model.ListId })')">@T("Wishlist.EmailAFriend")</button>
+                        }
+                        @if (Model.IsEditable && Model.AllowMultipleWishlist && Model.ListId > 0)
+                        {
+                            <button type="button" name="deletewishlistbutton" class="button-2 delete-wishlist-button at-wishlist__delete" onclick="deleteCustomWishlist()">
+                                @T("Wishlist.DeleteWishlist")
+                            </button>
+                        }
+                    </div>
+                    <input type="hidden" name="listId" value="@Model.ListId"/>
+                </form>
+            </div>
+        }
+        else
+        {
+            <div class="no-data ms-wishlist-empty at-wishlist__empty">
+                <span class="at-wishlist__empty-mark" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.1">
+                        <path d="M24 5 43 24 24 43 5 24 24 5Z" />
+                        <path stroke-linejoin="round" d="M24 32.5c-4.9-3.3-8.2-6.2-8.2-9.9a4.6 4.6 0 0 1 8.2-2.8 4.6 4.6 0 0 1 8.2 2.8c0 3.7-3.3 6.6-8.2 9.9Z" />
+                    </svg>
+                </span>
+                <p class="at-eyebrow"><span class="at-eyebrow__rule" aria-hidden="true"></span> The private list</p>
+                <h2 class="at-wishlist__empty-title">@T("Wishlist.CartIsEmpty")</h2>
+                <p class="at-wishlist__empty-copy">
+                    Keep the objects you are considering here. They will wait, quietly, while you decide.
+                </p>
+                <div class="at-wishlist__empty-actions">
+                    <a class="at-btn" href="@continueUrl">@T("ShoppingCart.ContinueShopping")</a>
+                    @if (isGuest && Model.IsEditable)
+                    {
+                        <a class="at-btn at-btn--ghost" href="@signInUrl">@T("Account.Login")</a>
+                    }
+                </div>
+            </div>
+            @if (Model.IsEditable && Model.AllowMultipleWishlist && Model.ListId > 0)
+            {
+                <div class="wishlist-content">
+                    <div class="buttons ms-wishlist-actions at-wishlist__actions">
+                        <button type="button" name="deletewishlistbutton" class="button-2 delete-wishlist-button at-wishlist__delete" onclick="deleteCustomWishlist()">@T("Wishlist.DeleteWishlist")</button>
+                    </div>
+                </div>
+            }
+        }
+        @if (Model.IsEditable && Model.AllowMultipleWishlist && Model.ListId > 0)
+        {
+            <script asp-location="Footer">
+                function deleteCustomWishlist() {
+                    if (confirm('@T("Common.AreYouSure")'))
+                    {
+                        AjaxCart.deleteCustomWishlist('@urlDeleteWishlist');return false;
+                    }
+                }
+            </script>
+        }
+        @if (Model.IsEditable && Model.Items.Count > 0)
+        {
+            var wishlistUrl = Url.RouteUrl(NopRouteNames.General.WISHLIST, new { customerGuid = Model.CustomerGuid, list = Model.ListId }, webHelper.GetCurrentRequestProtocol());
+            <div class="share-info ms-wishlist-share at-wishlist__share">
+                <span class="share-label">@T("Wishlist.YourWishlistURL"):</span>
+                <a href="@wishlistUrl" class="share-link">@wishlistUrl</a>
+            </div>
+        }
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.WishlistBottom, additionalData = Model })
+    </div>
+</div>

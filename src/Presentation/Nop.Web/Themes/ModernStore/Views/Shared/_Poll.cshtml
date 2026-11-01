@@ -1,0 +1,107 @@
+@model PollModel
+
+@* ModernStore override of Views/Shared/_Poll.cshtml — the partial that
+   PollBlock/Default.cshtml and HomepagePolls/Default.cshtml both render, and that
+   PollController.cs:82 re-renders with RenderPartialViewToStringAsync("_Poll", …) after
+   a vote. There is no Poll view component and no PollVotingResult view in this build;
+   the already-voted state is the Model.AlreadyVoted branch of this one file, so that is
+   where the result treatment lives.
+
+   Contract kept verbatim. The whole element is swapped on a successful vote — the base
+   script does $("#poll-block-@Model.Id").replaceWith(data.html) — so id="poll-block-…"
+   must stay on the root. So must every other hook that script reaches for: the radio
+   name="pollanswers-@Model.Id" (read with $("input:radio[name=pollanswers-…]:checked")),
+   the per-answer id="pollanswers-@item.Id" plus its matching label for=,
+   #vote-poll-@Model.Id, #poll-voting-progress-@Model.Id, #block-poll-vote-error-@Model.Id,
+   the NopRouteNames.Ajax.POLL_VOTE url and addAntiForgeryToken. The two display:none
+   values are the base's and are load-bearing: the script calls .show()/.hide() and
+   .fadeIn()/.fadeOut() on them, which write inline style — that is the only thing
+   keeping the spinner and the error slot hidden before a vote.
+
+   Presentation only: the question gets its own header block, the options become
+   label-sized click targets, and the results get a bar. The bar is a <progress>
+   element rather than a width-styled div because inline style attributes are not
+   allowed in new markup — value is written invariant-culture so an Arabic locale cannot
+   put Arabic-Indic digits or "،" into the attribute, while the visible
+   Polls.VotesResultLine keeps the base's plain ToString("0.0"). Legacy classes
+   (poll, poll-display-text, poll-options, poll-results, answer, poll-total-votes,
+   buttons, vote-poll-button, please-wait, poll-vote-error) are all still there, and no
+   locale key was added or reworded.*@
+<div class="poll ms-poll" id="poll-block-@(Model.Id)">
+    <header class="ms-poll__head">
+        <strong class="poll-display-text ms-poll__question">@Model.Name</strong>
+    </header>
+    @if (Model.AlreadyVoted)
+    {
+        <ul class="poll-results ms-poll__results">
+            @foreach (var item in Model.Answers)
+            {
+                <li class="answer ms-poll__result">
+                    <progress class="ms-poll__bar" value="@item.PercentOfTotalVotes.ToString("0.0", CultureInfo.InvariantCulture)" max="100" aria-label="@item.Name"></progress>
+                    <span class="ms-poll__result-line">@string.Format(T("Polls.VotesResultLine").Text, item.Name, item.NumberOfVotes, item.PercentOfTotalVotes.ToString("0.0"))</span>
+                </li>
+            }
+        </ul>
+        <span class="poll-total-votes ms-poll__total">@string.Format(T("Polls.TotalVotes").Text, Model.TotalVotes)</span>
+    }
+    else
+    {
+        <ul class="poll-options ms-poll__options">
+            @foreach (var item in Model.Answers)
+            {
+                <li class="answer ms-poll__option">
+                    <input class="ms-poll__radio" id="pollanswers-@(item.Id)" type="radio" name="pollanswers-@(Model.Id)" value="@item.Id" />
+                    <label class="ms-poll__label" for="pollanswers-@(item.Id)">@item.Name</label>
+                </li>
+            }
+        </ul>
+        <div class="buttons ms-poll__actions">
+            <button type="button" id="vote-poll-@(Model.Id)" class="button-2 vote-poll-button ms-poll__vote">@T("Polls.Vote")</button>
+            <span id="poll-voting-progress-@(Model.Id)" style="display: none;" class="please-wait ms-poll__progress">@T("Common.Wait")</span>
+        </div>
+        <div class="poll-vote-error ms-poll__error" id="block-poll-vote-error-@(Model.Id)" style="display:none">
+        </div>
+        <script asp-location="Footer">
+            $(function() {
+                $('#vote-poll-@(Model.Id)').on('click', function () {
+                    var pollAnswerId = $("input:radio[name=pollanswers-@(Model.Id)]:checked").val();
+                    if (typeof (pollAnswerId) == 'undefined') {
+                        alert('@Html.Raw(JavaScriptEncoder.Default.Encode(T("Polls.SelectAnswer").Text))');
+                    }
+                    else {
+                        var voteProgress = $("#poll-voting-progress-@(Model.Id)");
+                        voteProgress.show();
+
+                        var postData = {
+                          "pollAnswerId": pollAnswerId
+                        };
+                        addAntiForgeryToken(postData);
+
+                        $.ajax({
+                            cache: false,
+                            type: "POST",
+                            url: "@(Url.RouteUrl(NopRouteNames.Ajax.POLL_VOTE))",
+                            data: postData,
+                            success: function (data, textStatus, jqXHR) {
+                                if (data.error) {
+                                    $("#block-poll-vote-error-@(Model.Id)").html(data.error);
+                                    $('#block-poll-vote-error-@(Model.Id)').fadeIn("slow").delay(2000).fadeOut("slow");
+                                }
+                                if (data.html) {
+                                    $("#poll-block-@(Model.Id)").replaceWith(data.html);
+                                }
+                            },
+                            error: function (jqXHR, textStatus, errorThrown) {
+                                alert('Failed to vote.');
+                            },
+                            complete: function (jqXHR, textStatus) {
+                                voteProgress.hide();
+                            }
+                        });
+                    }
+                    return false;
+                });
+            });
+        </script>
+    }
+</div>
