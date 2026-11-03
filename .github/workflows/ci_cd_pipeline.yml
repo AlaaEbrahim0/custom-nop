@@ -433,4 +433,41 @@ jobs:
             Write-Host "Admin probe failed ($($_.Exception.Message)); the home page answered, so the store is up."
           }
 
+          # A store installed by opening the wizard over HTTP records SslEnabled=false on its Store
+          # row (InstallRequiredData.cs:73), and HttpsRequirementAttribute.cs:108 then 301s every
+          # front-end page from HTTPS back down to HTTP. Adding a certificate later does not change
+          # that, so the scheme is checked here: a store that refuses to serve over TLS is not a
+          # good deploy, even though the files and the app are healthy.
+          $httpsUrl = $env:SITE_URL -replace '^http://', 'https://'
+          if ($httpsUrl -ne $env:SITE_URL) {
+            $httpsStatus = $null
+            $httpsLocation = ''
+            try {
+              $r = Invoke-WebRequest -Uri "$httpsUrl/" -UseBasicParsing -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 45
+              $httpsStatus = [int]$r.StatusCode
+              $httpsLocation = [string]$r.Headers['Location']
+            } catch {
+              # A suppressed 3xx can surface as an exception instead of a response, so read the
+              # status off the exception too -- otherwise a downgrade is reported as "no TLS
+              # answer" and slips past the gate.
+              $resp = $_.Exception.Response
+              if ($resp) {
+                $httpsStatus = [int]$resp.StatusCode
+                $httpsLocation = [string]$resp.Headers.Location
+              } else {
+                Write-Host "WARNING: nothing answered over TLS on $httpsUrl ($($_.Exception.Message)). The host certificate still needs to be issued; not failing the deploy on that alone."
+              }
+            }
+            if ($null -ne $httpsStatus) {
+              if (($httpsStatus -in 301, 302, 307, 308) -and ($httpsLocation -match '^http://')) {
+                throw "HTTPS redirects down to HTTP ($httpsLocation): the store row has SslEnabled=false. Sign in over HTTP, then open https://<host>/admin/Store/SetStoreSslByCurrentRequestScheme/<storeId> -- that action ignores the scheme filter (StoreController.cs:165) and is the only supported way to flip the flag, because the admin edit form does not map SslEnabled (AdminMapperConfiguration.cs:1670)."
+              }
+              if ($httpsStatus -lt 400) {
+                Write-Host "HTTPS check passed: HTTP $httpsStatus on $httpsUrl"
+              } else {
+                Write-Host "WARNING: HTTPS answered HTTP $httpsStatus on $httpsUrl -- not a scheme downgrade, but worth a look."
+              }
+            }
+          }
+
           Write-Host "Deployment verified on $env:SITE_URL."
