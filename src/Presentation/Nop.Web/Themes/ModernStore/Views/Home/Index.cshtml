@@ -14,6 +14,7 @@
 @inject IProductModelFactory productModelFactory
 @inject IPictureService pictureService
 @inject IUrlRecordService urlRecordService
+@inject Nop.Core.Caching.IStaticCacheManager staticCacheManager
 @inject IThemeContext themeContext
 
 @{
@@ -94,19 +95,33 @@
         atelierUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = atelierSeName });
     }
 
-    var houseLinks = new List<(string Name, string Url)>();
-    foreach (var category in rootCategories.Where(c => atelierRoot == null || c.Id != atelierRoot.Id))
-    {
-        //Only departments with a live catalogue belong in secondary discovery;
-        //empty stock categories would send visitors to a dead end.
-        var stock = await productService.SearchProductsAsync(
-            pageSize: 1,
-            categoryIds: new List<int> { category.Id },
-            storeId: storeId,
-            visibleIndividuallyOnly: true);
-        if (stock.TotalCount == 0)
-            continue;
+    // The stock probe below is the homepage's main uncached N+1: one SearchProductsAsync
+    // round-trip per root category. On a remote DB (~100ms/query) that dominates load time.
+    // Cache which root categories have a live catalogue (per store) so it runs once per cache
+    // window (IStaticCacheManager, backed by the now-enabled distributed/redis cache) instead
+    // of on every request. The rest (slugs, localized names, pictures) already hit nop's cache.
+    var houseCandidateCats = rootCategories.Where(c => atelierRoot == null || c.Id != atelierRoot.Id).ToList();
+    var catsWithStock = await staticCacheManager.GetAsync(
+        staticCacheManager.PrepareKeyForDefaultCache(new Nop.Core.Caching.CacheKey("modernstore.home.rootstock.{0}"), storeId),
+        async () =>
+        {
+            var ids = new List<int>();
+            foreach (var category in houseCandidateCats)
+            {
+                var stock = await productService.SearchProductsAsync(
+                    pageSize: 1,
+                    categoryIds: new List<int> { category.Id },
+                    storeId: storeId,
+                    visibleIndividuallyOnly: true);
+                if (stock.TotalCount > 0)
+                    ids.Add(category.Id);
+            }
+            return ids;
+        });
 
+    var houseLinks = new List<(string Name, string Url)>();
+    foreach (var category in houseCandidateCats.Where(c => catsWithStock.Contains(c.Id)))
+    {
         var seName = await urlRecordService.GetSeNameAsync(category);
         houseLinks.Add((
             await localizationService.GetLocalizedAsync(category, x => x.Name),

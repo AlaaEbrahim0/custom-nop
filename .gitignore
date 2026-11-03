@@ -226,3 +226,8 @@ src/AGENTS.md
 
 # --- Working notes (contain local absolute paths) ---
 /ModernStore-ENGINEERING-LOG.md
+# one-off seeding tool + DB backups (local only)
+/tools/nopseed/
+
+# local-only secrets for docker-compose.dev.yml
+.env

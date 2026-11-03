@@ -1,0 +1,436 @@
+name: nopCommerce CI/CD Pipeline
+
+# Deploys nopCommerce 4.90 to MonsterASP.NET (site104083 / custom-nop.runasp.net)
+# with WebDeploy, following the Nexus API pipeline that is proven against this host.
+#
+# Required repository configuration (Settings -> Secrets and variables):
+#   Secret  MONSTERASP_MSDEPLOY_PASSWORD      the site's WebDeploy password (publishSettings userPWD)
+#   Secret  NOP_PRODUCTION_CONNECTION_STRING  SQL Server connection string for the installed store
+#   Variable AUTO_DEPLOY_MONSTERASP           "true" to deploy on every push to main (leave unset until
+#                                             the first manual deploy is verified)
+#   Variable PRODUCTION_SITE_URL              optional, defaults to http://custom-nop.runasp.net
+#
+# The deploy job runs on windows-latest because msdeploy.exe is preinstalled there; a Linux runner
+# would need w3cwp/msdeploy installed by hand and the WebPublish MSBuild targets are unreliable
+# outside Windows.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: 'Build, publish and deploy to MonsterASP production'
+        type: boolean
+        default: true
+
+concurrency:
+  group: nopcommerce-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: Build solution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/NopCommerce.sln
+
+      - name: Build
+        run: dotnet build src/NopCommerce.sln --configuration Release --no-restore
+
+      - name: Verify plugins were produced
+        shell: pwsh
+        run: |
+          # Each plugin project sets its OutputPath to $(SolutionDir)\Presentation\Nop.Web\Plugins\<name>,
+          # so the plugin folders under Nop.Web/Plugins only exist after the whole solution has been
+          # built -- building Nop.Web alone silently yields a store with no payment or shipping methods.
+          $count = (Get-ChildItem src/Presentation/Nop.Web/Plugins -Recurse -Filter plugin.json -ErrorAction SilentlyContinue | Measure-Object).Count
+          Write-Host "Plugin folders with a descriptor: $count"
+          if ($count -lt 1) {
+            throw "No plugins were built into src/Presentation/Nop.Web/Plugins; the store would deploy without payment, shipping or tax providers."
+          }
+
+  deploy:
+    name: Publish and deploy to MonsterASP.net (WebDeploy)
+    needs: [build]
+    # Production deploys are initiated deliberately via workflow_dispatch.
+    # Automatic deploys on push to main are enabled by the repo variable
+    # AUTO_DEPLOY_MONSTERASP once the first manual deployment is verified.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_to_production) ||
+      (github.event_name == 'push' && vars.AUTO_DEPLOY_MONSTERASP == 'true')
+    runs-on: windows-latest
+    environment: production
+    env:
+      MSDEPLOY_SITE_NAME: site104083
+      MSDEPLOY_COMPUTER: https://site104083.siteasp.net:8172/msdeploy.axd?site=site104083
+      MSDEPLOY_USER: site104083
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # The solution is built here rather than reused from the build job because the publish below
+      # runs on Windows and has to find the plugin output that this same workspace produced.
+      - name: Build solution (produces Plugins output)
+        shell: pwsh
+        run: |
+          dotnet build src/NopCommerce.sln --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish for IIS
+        shell: pwsh
+        run: |
+          # win-x86 + UseAppHost=false matches how MonsterASP runs .NET sites: a 32-bit worker
+          # process started as `dotnet Nop.Web.dll` in-process, with no apphost executable.
+          dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj `
+            --configuration Release `
+            --output ./publish `
+            --runtime win-x86 `
+            --self-contained false `
+            -p:UseAppHost=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Write production App_Data/appsettings.json
+        shell: pwsh
+        env:
+          NOP_CONNECTION_STRING: ${{ secrets.NOP_PRODUCTION_CONNECTION_STRING }}
+        run: |
+          # nopCommerce keeps its bootstrap configuration in App_Data/appsettings.json, which is
+          # gitignored (Nop.Web.csproj also excludes App_Data/*.json from publish) -- so the file the
+          # live store needs is never in the package unless it is generated here. Install state is
+          # derived from this file alone: DataSettingsManager.IsConfigured() is simply
+          # "ConnectionString is not empty" (src/Libraries/Nop.Data/DataSettingsManager.cs:146), so an
+          # empty value sends the site to /install instead of the store.
+          #
+          # The section is named ConnectionStrings because that is DataConfig.Name. Every other
+          # section is left out on purpose: absent sections fall back to the property defaults in
+          # Nop.Core/Configuration, which for DistributedCacheConfig means Enabled=false -- no Redis,
+          # correct for a single-instance shared host. Do not add a DistributedCacheConfig section
+          # copied from the development file: it points at a local Redis and would hang startup.
+          if ([string]::IsNullOrWhiteSpace($env:NOP_CONNECTION_STRING)) {
+            throw "GitHub Actions secret NOP_PRODUCTION_CONNECTION_STRING is not configured."
+          }
+
+          $settings = [ordered]@{
+            ConnectionStrings = [ordered]@{
+              ConnectionString  = $env:NOP_CONNECTION_STRING
+              DataProvider      = "sqlserver"
+              SQLCommandTimeout = $null
+              WithNoLock        = $false
+              Collation         = ""
+              CharacterSet      = ""
+            }
+            InstallationConfig = [ordered]@{
+              DisableSampleData = $false
+              DisabledPlugins = "Misc.AzureBlob,Misc.CloudflareImages"
+              InstallRegionalResources = $true
+            }
+            CommonConfig = [ordered]@{
+              DisplayFullErrorStack = $false
+            }
+          }
+
+          $json = $settings | ConvertTo-Json -Depth 10
+          $path = Join-Path (Get-Location) "publish/App_Data/appsettings.json"
+          [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding($false)))
+          Write-Host "Production App_Data/appsettings.json generated."
+
+      - name: Inject runtime environment variables into web.config
+        shell: pwsh
+        run: |
+          # Shared IIS hosting offers no per-app process environment other than through the
+          # web.config <environmentVariables> block, which the ASP.NET Core Module applies even for
+          # in-process apps. Pinning ASPNETCORE_ENVIRONMENT=Production makes the app load
+          # App_Data/appsettings.Production.json (optional) and stops any Development behaviour
+          # leaking into the store.
+          $webConfigPath = Join-Path (Get-Location) "publish/web.config"
+          if (-not (Test-Path $webConfigPath)) {
+            throw "publish/web.config was not generated; the IIS deployment cannot work without it."
+          }
+
+          $xml = New-Object System.Xml.XmlDocument
+          $xml.PreserveWhitespace = $true
+          $xml.Load($webConfigPath)
+
+          $aspNetCore = $xml.SelectSingleNode("//aspNetCore")
+          if (-not $aspNetCore) {
+            throw "publish/web.config has no <aspNetCore> element to extend."
+          }
+
+          $existing = $aspNetCore.SelectSingleNode("environmentVariables")
+          if ($existing) { $aspNetCore.RemoveChild($existing) | Out-Null }
+
+          $envVars = $xml.CreateElement("environmentVariables")
+          $envSetting = $xml.CreateElement("environmentVariable")
+          $envSetting.SetAttribute("name", "ASPNETCORE_ENVIRONMENT")
+          $envSetting.SetAttribute("value", "Production")
+          $envVars.AppendChild($envSetting) | Out-Null
+          $aspNetCore.AppendChild($envVars) | Out-Null
+
+          $xml.Save($webConfigPath)
+          Write-Host "web.config updated with ASPNETCORE_ENVIRONMENT=Production."
+
+      - name: Validate publish output
+        shell: pwsh
+        run: |
+          foreach ($required in @('./publish/web.config', './publish/Nop.Web.dll', './publish/App_Data/appsettings.json')) {
+            if (-not (Test-Path $required)) { throw "$required is missing from publish output." }
+          }
+          if (Test-Path ./publish/Nop.Web.exe) {
+            throw "Nop.Web.exe was published; a custom EXE runtime is unsupported on this host. Publish with -p:UseAppHost=false."
+          }
+
+          $plugins = (Get-ChildItem ./publish/Plugins -Directory -ErrorAction SilentlyContinue | Measure-Object).Count
+          if ($plugins -lt 1) {
+            throw "publish/Plugins is empty -- the solution was not built before publish, so the store would have no payment, shipping or tax providers."
+          }
+          Write-Host "Plugin folders in publish output: $plugins"
+
+          if (-not (Test-Path ./publish/Themes/ModernStore)) {
+            throw "Themes/ModernStore is missing from publish output; the storefront theme would not deploy."
+          }
+
+          # The SDK replaces %LAUNCHER_PATH%/%LAUNCHER_ARGS% at publish time. If they survive, IIS
+          # tries to launch a literal "%LAUNCHER_PATH%" and the site 500.19s before the app starts.
+          $webConfig = Get-Content ./publish/web.config -Raw
+          if ($webConfig -notmatch 'processPath="dotnet"') {
+            throw "web.config does not start the DLL runtime (processPath=`"dotnet`"). Found: $webConfig"
+          }
+          if ($webConfig -notmatch 'hostingModel="InProcess"') {
+            throw "web.config is not using in-process hosting. Found: $webConfig"
+          }
+          if ($webConfig -match '%LAUNCHER_(PATH|ARGS)%') {
+            throw "web.config still contains unexpanded %LAUNCHER_*% tokens."
+          }
+          if ($webConfig -notmatch 'name="ASPNETCORE_ENVIRONMENT"') {
+            throw "web.config does not pin ASPNETCORE_ENVIRONMENT=Production."
+          }
+
+          # A blank connection string is invisible at deploy time and becomes a /install page in
+          # production, so confirm the value was actually written (length only, never the value).
+          $settings = Get-Content ./publish/App_Data/appsettings.json -Raw | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($settings.ConnectionStrings.ConnectionString)) {
+            throw "App_Data/appsettings.json has an empty ConnectionStrings:ConnectionString."
+          }
+          if ($settings.ConnectionStrings.DataProvider -ne 'sqlserver') {
+            throw "App_Data/appsettings.json DataProvider is '$($settings.ConnectionStrings.DataProvider)', expected 'sqlserver'."
+          }
+          Write-Host "Connection string present ($($settings.ConnectionStrings.ConnectionString.Length) chars) and provider is sqlserver."
+
+          # nopCommerce is far larger than a bare API: plugins, themes, App_Data seed data and
+          # wwwroot assets. The gate is a bloat alarm, not a host quota.
+          $sizeMB = [math]::Round((Get-ChildItem ./publish -Recurse -File |
+            Measure-Object -Property Length -Sum).Sum / 1MB, 1)
+          Write-Host "Publish size: $sizeMB MB."
+          if ($sizeMB -gt 800) {
+            throw "Publish output is $sizeMB MB, far beyond a normal nopCommerce publish."
+          }
+
+          Write-Host "Publish output verified: x86 DLL runtime, in-process, launcher tokens expanded, plugins and theme present, store configured."
+
+      - name: Deploy to MonsterASP.net via WebDeploy
+        shell: pwsh
+        env:
+          MSDEPLOY_PASSWORD: ${{ secrets.MONSTERASP_MSDEPLOY_PASSWORD }}
+        run: |
+          # Endpoint and parameter layout per the MonsterASP.NET "Deploy from the command line"
+          # documentation and the site's own publishSettings file:
+          #   -source:contentPath=<publish folder>
+          #   -dest:contentPath=<site>,computerName=https://<site>.siteasp.net:8172/msdeploy.axd?site=<site>,
+          #         userName=<site>,password=...,authtype=Basic,includeAcls=False
+          #   -allowUntrusted -disableLink:AppPoolExtension -disableLink:ContentExtension
+          #   -disableLink:CertificateExtension
+          #
+          # The command line is handed to CreateProcess verbatim through ProcessStartInfo.Arguments.
+          # Going through PowerShell argument passing re-quotes the long -dest token
+          # ("Unrecognized argument", seen in the Nexus run 40003217370), so no PowerShell token
+          # splitting may sit between us and msdeploy.
+          if ([string]::IsNullOrWhiteSpace($env:MSDEPLOY_PASSWORD)) {
+            throw "GitHub Actions secret MONSTERASP_MSDEPLOY_PASSWORD is not configured."
+          }
+
+          $msdeploy = Join-Path ${env:ProgramFiles(x86)} "IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          if (-not (Test-Path $msdeploy)) {
+            $msdeploy = Join-Path $env:ProgramFiles "IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          }
+          if (-not (Test-Path $msdeploy)) {
+            $found = Get-Command msdeploy.exe -ErrorAction SilentlyContinue
+            if ($found) { $msdeploy = $found.Source }
+          }
+          if (-not (Test-Path $msdeploy)) {
+            throw "msdeploy.exe was not found on this runner."
+          }
+          Write-Host "msdeploy found: $msdeploy"
+
+          # Values are escaped the way CommandLineToArgvW parses them: a value carrying a space or a
+          # quote is wrapped in quotes and an embedded quote is backslash-escaped. The site's
+          # password here contains '#' and '?' characters, which is exactly why it must not go
+          # through PowerShell's own tokenizer.
+          function Esc([string] $value) {
+            $escaped = $value.Replace('"', '\"')
+            if ($escaped -match '[\s"]') { return '"{0}"' -f $escaped }
+            return $escaped
+          }
+
+          $pwdPart = 'password=' + (Esc $env:MSDEPLOY_PASSWORD)
+          $destCommon = 'computerName=' + (Esc $env:MSDEPLOY_COMPUTER) +
+            ',userName=' + (Esc $env:MSDEPLOY_USER) +
+            ',' + $pwdPart + ',authtype=Basic,includeAcls=False'
+
+          $pubPath = (Join-Path (Get-Location) "publish")
+
+          $script:LastOutput = ''
+          function Invoke-MsDeploy {
+            param([string] $Arguments)
+            $redacted = $Arguments.Replace($env:MSDEPLOY_PASSWORD, '***')
+            Write-Host "msdeploy $redacted"
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = $msdeploy
+            $psi.Arguments = $Arguments
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $proc = [System.Diagnostics.Process]::new()
+            $proc.StartInfo = $psi
+            [void]$proc.Start()
+            $outTask = $proc.StandardOutput.ReadToEndAsync()
+            $errTask = $proc.StandardError.ReadToEndAsync()
+            $proc.WaitForExit()
+            $stdout = $outTask.Result.TrimEnd()
+            $stderr = $errTask.Result.TrimEnd()
+            if ($stdout) { Write-Host $stdout }
+            if ($stderr) { Write-Host $stderr }
+            $script:LastOutput = ($stdout + "`n" + $stderr)
+            return $proc.ExitCode
+          }
+
+          # In-process IIS holds Nop.Web.dll open for the life of the worker process, so syncing
+          # content onto a running site fails with ERROR_FILE_IN_USE. The AppOffline rule is the
+          # msdeploy-side fix: it drops app_offline.htm so IIS takes the app out of process for the
+          # sync and removes the file afterwards. Staging that file manually through the filePath
+          # provider is NOT authorized on this host
+          # (ERROR_USER_NOT_AUTHORIZED_FOR_DEPLOYMENTPROVIDER).
+          #
+          # DoNotDeleteRule is not optional for a store: everything the shop owns lives in files that
+          # are deliberately not in the package -- App_Data/dataSettings.json and appsettings.json as
+          # the installer wrote them, App_Data/DataProtectionKeys/*.xml (excluded from publish by
+          # Nop.Web.csproj:34, losing them logs every customer and admin session out),
+          # Plugins/Uploaded, and the image uploads under wwwroot/images/uploaded plus the WebOptimizer
+          # bundles in wwwroot/bundles. A sync without this rule deletes them.
+          $syncArgs = ' -verb:sync' +
+            ' -source:contentPath="' + $pubPath + '"' +
+            ' -dest:contentPath=' + (Esc $env:MSDEPLOY_SITE_NAME) + ',' + $destCommon +
+            ' -allowUntrusted' +
+            ' -disableLink:AppPoolExtension' +
+            ' -disableLink:ContentExtension' +
+            ' -disableLink:CertificateExtension' +
+            ' -enableRule:AppOffline' +
+            ' -enableRule:DoNotDeleteRule'
+
+          # A worker that did not tear down fast enough still holds file locks; retrying a couple of
+          # times usually succeeds once the app has actually gone away. Non-lock errors are not retried.
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            $code = Invoke-MsDeploy $syncArgs
+            if ($code -eq 0) { break }
+            if ($script:LastOutput -notmatch 'FILE_IN_USE') { break }
+            if ($attempt -lt 3) {
+              Write-Host "Files were still locked; retrying (attempt $($attempt + 1) of 3)."
+              Start-Sleep -Seconds 15
+            }
+          }
+          if ($code -ne 0) {
+            throw "WebDeploy deployment failed with exit code $code."
+          }
+
+          $summary = ($script:LastOutput -split "`n" | Select-String 'Total changes') | ForEach-Object { $_.ToString().Trim() }
+          if ($summary) { Write-Host $summary }
+          Write-Host "WebDeploy sync completed for MonsterASP site $($env:MSDEPLOY_SITE_NAME)."
+
+      - name: Verify deployment
+        shell: pwsh
+        env:
+          SITE_URL: ${{ vars.PRODUCTION_SITE_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SITE_URL)) {
+            $env:SITE_URL = "http://custom-nop.runasp.net"
+          }
+
+          # nopCommerce has no /health endpoint. The home page is the real probe, and a cold store is
+          # slow: first start builds the bundled CSS/JS and touches every mapping, so allow plenty of
+          # time rather than reporting a failure that is just startup.
+          $deadline = (Get-Date).AddMinutes(10)
+          $ok = $false
+          $finalUrl = ''
+          while ((Get-Date) -lt $deadline) {
+            try {
+              $response = Invoke-WebRequest -Uri "$env:SITE_URL/" -UseBasicParsing -MaximumRedirection 10 -TimeoutSec 60
+              $finalUrl = [string]$response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Store responded: HTTP 200, final URL $finalUrl"
+                $ok = $true
+                break
+              }
+              Write-Host "Home page returned HTTP $($response.StatusCode); retrying."
+            } catch {
+              Write-Host "Waiting for the application to start: $($_.Exception.Message)"
+            }
+            Start-Sleep -Seconds 20
+          }
+
+          if (-not $ok) {
+            Write-Host ""
+            Write-Host "DIAGNOSIS: the store never answered on $env:SITE_URL/."
+            Write-Host "Check, in this order:"
+            Write-Host "  1. Does the response body mention 500.31? The .NET 9 hosting bundle is not"
+            Write-Host "     installed on this MonsterASP server, and only the host can add it -- ask"
+            Write-Host "     support, or publish self-contained."
+            Write-Host "  2. 500.30 / 500.19 means web.config or the app itself failed to start. Turn on"
+            Write-Host "     stdout logging in web.config (stdoutLogEnabled=`"true`", the .\logs folder is"
+            Write-Host "     writable) and read it under Control Panel -> Application & Access logs."
+            Write-Host "  3. Is the site root populated? WebDeploy uploads the publish folder into /wwwroot,"
+            Write-Host "     so look for web.config, Nop.Web.dll, bin/, Plugins/ and Themes/."
+            Write-Host "  4. Can the app reach the database? A wrong or unreachable"
+            Write-Host "     ConnectionStrings:ConnectionString faults on the first query, not at startup."
+            Write-Host ""
+            throw "Deployment verification failed. The store is not serving requests on $env:SITE_URL/."
+          }
+
+          # Reaching /install after a successful deploy means the app booted but found no connection
+          # string, i.e. the generated App_Data/appsettings.json was not the one loaded. Catching it
+          # here prevents a "green" deploy of an empty wizard-driven store.
+          if ($finalUrl -match '/install') {
+            throw "The store redirected to the install page ($finalUrl): App_Data/appsettings.json is not being read or its connection string is empty."
+          }
+
+          # The admin area proves the routed areas and the settings cache, not just the home page.
+          try {
+            $admin = Invoke-WebRequest -Uri "$env:SITE_URL/admin" -UseBasicParsing -MaximumRedirection 10 -TimeoutSec 60
+            Write-Host "Admin area responded: HTTP $($admin.StatusCode)"
+          } catch {
+            Write-Host "Admin probe failed ($($_.Exception.Message)); the home page answered, so the store is up."
+          }
+
+          Write-Host "Deployment verified on $env:SITE_URL."

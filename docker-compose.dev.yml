@@ -1,0 +1,79 @@
+# Local dev stack for ModernStore: NopCommerce web + SQL Server + Redis.
+# Needs a local .env with SA_PASSWORD=<your local sa password>; it is gitignored so this file can
+# be committed without publishing a database password.
+# Usage:
+#   1) docker compose -f docker-compose.dev.yml up --build -d
+#   2) open http://localhost:8080  -> the nopCommerce installer appears once
+#        Host/Server: db   Database: nopcommerce   User: sa   Password: from SA_PASSWORD in .env
+#        (create the DB if it doesn't exist; uncheck "install sample data" for a clean store)
+#        pick cache = Redis / DistributedCache -> it uses redis:6379
+#   3) after install the app restarts; your store runs on http://localhost:8080 with a LOCAL
+#      db + redis (fast). The SQL volume persists; App_Data persists the install.
+#
+# Note: this local DB is SEPARATE from your remote shared DB. The Atelier catalog currently
+# lives in the remote one; to get products here too, run the installer with sample data OFF,
+# then we re-seed the Atelier catalog against this local DB (I can do that next).
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: atelier_db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      SA_PASSWORD: ${SA_PASSWORD:?set SA_PASSWORD in a local .env}
+    ports:
+      - "1434:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: atelier_redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: atelier_web
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:80"
+      # Leave ConnectionStrings empty so the installer runs against the local db service.
+      ConnectionStrings__DataProvider: ""
+      ConnectionStrings__ConnectionString: ""
+      # Use redis (container service name) instead of the remote/unavailable cache.
+      DistributedCacheConfig__Enabled: "true"
+      DistributedCacheConfig__DistributedCacheType: "redis"
+      DistributedCacheConfig__ConnectionString: "redis:6379,ssl=False,abortConnect=false"
+      InstallationConfig__DisableSampleData: "true"
+      NopConfig__GeneratedScriptsPath: "App_Data/GeneratedScripts"
+    ports:
+      - "8080:80"
+    volumes:
+      - nop-appdata:/app/App_Data
+      - nop-images:/app/wwwroot/images
+      - nop-bundles:/app/wwwroot/bundles
+      - nop-logs:/app/logs
+
+volumes:
+  mssql-data:
+  nop-appdata:
+  nop-images:
+  nop-bundles:
+  nop-logs:
